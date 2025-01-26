@@ -1,0 +1,211 @@
+/* General Container */
+.everxp-multi-rows-container {
+    font-family: Arial, sans-serif;
+    margin: 20px auto;
+    max-width: 800px;
+    border: 2px solid #249600;
+    border-radius: 8px;
+    background-color: transparent;
+    padding: 15px;
+    position: relative;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* EverXP Credit */
+.everxp-credit {
+    position: absolute;
+    bottom: 5px;
+    right: 10px;
+    font-size: 12px;
+    color: #666;
+    text-align: right;
+    font-style: italic;
+}
+
+.everxp-credit a {
+    color: blue;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.everxp-credit a:hover {
+    text-decoration: underline;
+}
+
+/* Horizontal Slider */
+.everxp-multi-slider {
+    display: flex;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+    border-radius: 5px;
+    white-space: nowrap;
+}
+
+.everxp-multi-slider .multi-slide {
+    flex: 0 0 100%;
+    display: inline-block;
+    padding: 10px;
+    box-sizing: border-box;
+    text-align: center;
+    overflow: hidden;
+    transform: translateX(100%);
+    opacity: 0;
+    transition: transform 1s ease-in-out, opacity 1s ease-in-out;
+}
+
+.everxp-multi-slider .multi-slide.active {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+/* General styling for news ticker */
+.everxp-news-ticker {
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+    height: 40px; /* Adjust based on desired height */
+    border-radius: 5px;
+    display: flex;
+    align-items: center; /* Center text vertically */
+    justify-content: flex-start; /* Default alignment */
+}
+
+.everxp-news-ticker.rtl {
+    direction: rtl; /* Right-to-left direction for scrolling */
+    justify-content: right; /* Align content to the right for RTL */
+}
+
+.everxp-news-ticker .ticker-content {
+    display: inline-block;
+    white-space: nowrap; /* Prevent wrapping within the ticker */
+    text-align: inherit; /* Use inherited alignment */
+}
+
+/* Alignments for horizontal ticker */
+.everxp-news-ticker .ticker-content.left {
+    justify-content: left;
+}
+
+.everxp-news-ticker .ticker-content.center {
+    justify-content: center;
+}
+
+.everxp-news-ticker .ticker-content.right {
+    justify-content: flex-end;
+}
+
+/* Horizontal scrolling animation */
+@keyframes ticker-scroll-horizontal {
+    0% {
+        transform: translateX(100%);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
+/* Vertical News Ticker */
+.everxp-news-ticker.vertical {
+    height: auto;
+    white-space: normal; /* Allow wrapping for vertical scrolling */
+    justify-content: flex-start; /* Default alignment */
+}
+
+.everxp-news-ticker.vertical .ticker-content {
+    display: block;
+    text-align: inherit; /* Use inherited alignment */
+}
+
+/* Alignments for vertical ticker */
+.everxp-news-ticker.vertical .ticker-content.left {
+    text-align: left;
+}
+
+.everxp-news-ticker.vertical .ticker-content.center {
+    text-align: center;
+}
+
+.everxp-news-ticker.vertical .ticker-content.right {
+    text-align: right;
+}
+
+/* Vertical scrolling animation */
+@keyframes ticker-scroll-vertical {
+    0% {
+        transform: translateY(100%);
+    }
+    100% {
+        transform: translateY(-100%);
+    }
+}
+
+
+/* Buttons for Interaction */
+.everxp-scroll-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: #249600;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    z-index: 2;
+    font-size: 16px;
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.everxp-scroll-button.prev {
+    left: 10px;
+}
+
+.everxp-scroll-button.next {
+    right: 10px;
+}
+
+.everxp-scroll-button:hover {
+    background-color: #1a7400;
+}
+
+/* General Transition for Animated Effects */
+.everxp-multi-animated {
+    transition: opacity 0.5s, transform 0.5s;
+}
+
+.everxp-multi-animated.fade {
+    opacity: 0;
+}
+
+.everxp-multi-animated.fade.active {
+    opacity: 1;
+}
+
+.everxp-multi-animated.slide {
+    transform: translateX(100%);
+}
+
+.everxp-multi-animated.slide.active {
+    transform: translateX(0);
+}
+
+@keyframes multi-bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-30px);
+    }
+    60% {
+        transform: translateY(-15px);
+    }
+}
+
+.everxp-multi-animated.bounce {
+    opacity: 1;
+    animation: multi-bounce 2s infinite;
+}

@@ -1,0 +1,39 @@
+.everxp-animated {
+    opacity: 0; /* Default state: Hidden */
+    transition: opacity 1s ease-in-out, transform 1s ease-in-out;
+}
+
+.everxp-animated[data-effect="fade"] {
+    transform: none; /* No movement for fade */
+}
+
+.everxp-animated[data-effect="fade"].everxp-active {
+    opacity: 1; /* Fully visible for fade */
+}
+
+.everxp-animated[data-effect="slide"] {
+    transform: translateY(20px);
+    opacity: 0; /* Hidden and moved down */
+}
+
+.everxp-animated[data-effect="slide"].everxp-active {
+    transform: translateY(0); /* Move back to original position */
+    opacity: 1; /* Fully visible */
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-30px);
+    }
+    60% {
+        transform: translateY(-15px);
+    }
+}
+
+.everxp-animated[data-effect="bounce"] {
+    opacity: 1;
+    animation: bounce 2s infinite;
+}

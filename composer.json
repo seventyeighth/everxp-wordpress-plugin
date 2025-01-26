@@ -1,0 +1,20 @@
+{
+    "name": "everxp/everxp-wordpress-plugin",
+    "description": "EverXP Wordpress Plugin",
+    "type": "project",
+    "license": "1178 Team",
+    "autoload": {
+        "psr-4": {
+            "Everxp\\EverxpWordpressPlugin\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "1178 Team"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    }
+}
