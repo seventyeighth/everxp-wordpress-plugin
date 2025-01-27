@@ -31,7 +31,6 @@ class EverXP_Settings {
 	        [self::class, 'render_settings_page'] // Callback for the settings page
 	    );
 
-
 	    // Add a sub-menu page for Sync Data
 	    add_submenu_page(
 	        'everxp',                   // Parent slug
@@ -51,6 +50,17 @@ class EverXP_Settings {
 			'everxp-docs',              // Menu slug
 			[self::class, 'render_docs_page'], // Callback for the main page
 	    );
+
+	    // Add a sub-menu page for Shortcode generator
+	    // add_submenu_page(
+		// 	'everxp',                      // Parent slug
+		// 	'Shortcode Generator',         // Page title
+		// 	'Shortcode Generator',         // Menu title
+		// 	'manage_options',              // Capability
+		// 	'everxp-shortcode-generator',  // Menu slug
+	    //     [self::class, 'render_shortcode_generator_page'] // Callback for the settings page
+	    // );
+
 	}
 
 	public static function render_main_page() {
@@ -342,6 +352,168 @@ class EverXP_Settings {
 	    echo '<button type="submit">Verify API Key</button>';
 	    echo '</form>';
 	}
+
+
+	public static function render_shortcode_generator_page() {
+	    ?>
+	    <div class="wrap">
+	        <h1>Shortcode Generator</h1>
+	        <div style="display: flex; gap: 20px;">
+	            <!-- Form Section -->
+	            <div style="flex: 1;">
+	                <form id="everxp-shortcode-form">
+	                    <h2>Single Shortcode</h2>
+	                    <table class="form-table">
+	                        <tr>
+	                            <th><label for="folder_id">Folder ID</label></th>
+	                            <td><input type="number" id="folder_id" name="folder_id" placeholder="6" required></td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="lang">Language</label></th>
+	                            <td><input type="text" id="lang" name="lang" placeholder="en" value="en"></td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="style">Style</label></th>
+	                            <td>
+	                                <select id="style" name="style">
+	                                    <option value="1">Pure (Default)</option>
+	                                    <option value="2">Playful</option>
+	                                    <option value="3">Guiding</option>
+	                                </select>
+	                            </td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="alignment">Alignment</label></th>
+	                            <td>
+	                                <select id="alignment" name="alignment">
+	                                    <option value="left">Left</option>
+	                                    <option value="center">Center</option>
+	                                    <option value="right">Right</option>
+	                                </select>
+	                            </td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="color">Text Color</label></th>
+	                            <td><input type="color" id="color" name="color" value="#000000"></td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="size">Font Size</label></th>
+	                            <td><input type="text" id="size" name="size" placeholder="16px" value="16px"></td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="effect">Effect</label></th>
+	                            <td>
+	                                <select id="effect" name="effect">
+	                                    <option value="none">None</option>
+	                                    <option value="fade">Fade</option>
+	                                    <option value="slide">Slide</option>
+	                                    <option value="bounce">Bounce</option>
+	                                </select>
+	                            </td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="duration">Duration</label></th>
+	                            <td><input type="number" id="duration" name="duration" placeholder="1000ms" value="1000"></td>
+	                        </tr>
+	                    </table>
+
+	                    <h2>Multiple Shortcode</h2>
+	                    <table class="form-table">
+	                        <tr>
+	                            <th><label for="display">Display</label></th>
+	                            <td>
+	                                <select id="display" name="display">
+	                                    <option value="line">Line</option>
+	                                    <option value="slider">Slider</option>
+	                                    <option value="news_ticker">News Ticker (Horizontal)</option>
+	                                    <option value="news_ticker_vertical">News Ticker (Vertical)</option>
+	                                </select>
+	                            </td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="limit">Limit</label></th>
+	                            <td><input type="number" id="limit" name="limit" placeholder="5" value="5"></td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="separator">Separator</label></th>
+	                            <td><input type="text" id="separator" name="separator" placeholder=" | " value=" | "></td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="scroll_speed">Scroll Speed</label></th>
+	                            <td><input type="number" id="scroll_speed" name="scroll_speed" placeholder="20000ms" value="20000"></td>
+	                        </tr>
+	                        <tr>
+	                            <th><label for="rtl">Right-to-Left</label></th>
+	                            <td>
+	                                <select id="rtl" name="rtl">
+	                                    <option value="false">False</option>
+	                                    <option value="true">True</option>
+	                                </select>
+	                            </td>
+	                        </tr>
+	                    </table>
+
+	                    <button type="button" id="generate-shortcode" class="button button-primary">Generate Shortcode</button>
+	                </form>
+	            </div>
+
+	            <!-- Preview Section -->
+	            <div style="flex: 1;">
+	                <h2>Generated Shortcode</h2>
+	                <pre id="generated-shortcode"></pre>
+
+	                <h2>Preview</h2>
+	                <div id="shortcode-preview" style="border: 1px solid #ddd; padding: 15px; background: #f9f9f9;">
+	                    <p>Your preview will appear here.</p>
+	                </div>
+	            </div>
+	        </div>
+
+	        <!-- Inline JavaScript -->
+	        <script>
+	            (function($) {
+	                $('#generate-shortcode').on('click', function() {
+	                    const form = $('#everxp-shortcode-form').serializeArray();
+	                    let shortcode = '';
+	                    let isMultiple = false;
+
+	                    // Determine shortcode type
+	                    form.forEach(field => {
+	                        if (field.name === 'display' || field.name === 'limit' || field.name === 'separator') {
+	                            isMultiple = true;
+	                        }
+	                    });
+
+	                    if (isMultiple) {
+	                        shortcode = '[everxp_shortcode_multiple ';
+	                    } else {
+	                        shortcode = '[everxp_shortcode ';
+	                    }
+
+	                    // Build the shortcode
+	                    form.forEach(field => {
+	                        if (field.value) {
+	                            shortcode += `${field.name}="${field.value}" `;
+	                        }
+	                    });
+	                    shortcode += ']';
+
+	                    // Update the UI
+	                    $('#generated-shortcode').text(shortcode);
+
+	                    // Render a basic preview (mock for demonstration)
+	                    let previewContent = isMultiple
+	                        ? `<p>Preview of multiple shortcode (e.g., headlines or text): <strong>${shortcode}</strong></p>`
+	                        : `<p>Preview of single shortcode: <strong>${shortcode}</strong></p>`;
+
+	                    $('#shortcode-preview').html(previewContent);
+	                });
+	            })(jQuery);
+	        </script>
+	    </div>
+	    <?php
+	}
+
 
 
 }

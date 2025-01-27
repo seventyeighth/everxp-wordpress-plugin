@@ -10,12 +10,6 @@ class EverXP_Multiple_Elementor_Widget extends Widget_Base {
 
     private $request;
 
-    public function __construct() {
-        parent::__construct();
-        $this->request = new EverXP_Request();
-    }
-
-    // Add a setter for testing purposes
     public function set_request($request) {
         $this->request = $request;
     }
@@ -181,7 +175,7 @@ class EverXP_Multiple_Elementor_Widget extends Widget_Base {
 
         // Font Size Control
         $this->add_control(
-            'size',
+            'font_size',
             [
                 'label' => __('Font Size', 'everxp'),
                 'type' => Controls_Manager::TEXT,
@@ -191,7 +185,7 @@ class EverXP_Multiple_Elementor_Widget extends Widget_Base {
 
         // Text Color Control
         $this->add_control(
-            'color',
+            'text_color',
             [
                 'label' => __('Text Color', 'everxp'),
                 'type' => Controls_Manager::COLOR,
@@ -269,51 +263,39 @@ class EverXP_Multiple_Elementor_Widget extends Widget_Base {
         $this->end_controls_section();
     }
 
-  
+
 
     public function render() {
-        $settings = $this->get_settings_for_display() ;
+        $settings = $this->get_settings_for_display();
 
+        // Check if settings are valid
         if (empty($settings) || !is_array($settings)) {
             echo '<p>Error: Missing or invalid widget settings.</p>';
             return;
         }
 
-        // Access settings safely
-        $folder_id = isset($settings['folder_id']) ? $settings['folder_id'] : null;
-        if (empty($folder_id)) {
-            echo '<p>Error: folder_id is required.</p>';
+        if (empty($settings['folder_id'])) {
+            echo '<p>Error: Folder ID is required.</p>';
             return;
         }
 
-        require_once plugin_dir_path(__FILE__) . 'class-everxp-request.php';
-        $this->request = new EverXP_Request(); 
+        if (empty($settings['limit'])) {
+            echo '<p>Error: Limit results is required.</p>';
+            return;
+        }
 
-        // Apply defaults to other settings
-        $folder_id        = $settings['folder_id'] ?? 0;
-        $lang             = $settings['lang'] ?? 'en';
-        $style            = $settings['style'] ?? 1;
-        $min_l            = $settings['min_l'] ?? 0;
-        $max_l            = $settings['max_l'] ?? 99999;
-        $limit            = $settings['limit'] ?? '5';
-        $alignment        = $settings['alignment'] ?? 'left';
-        $font_family      = $settings['font_family'] ?? 'Arial, sans-serif';
-        $font_size        = $settings['size'] ?? '16px';
-        $color            = $settings['color'] ?? '#000000';
-        $background_color = $settings['background_color'] ?? '#ffffff';
-        $border_color     = $settings['border_color'] ?? 'transparent';
-        $border_radius    = $settings['border_radius'] ?? '3px';
-        $padding          = $settings['padding'] ?? '15px';
-        $rtl              = $settings['rtl'] ?? false;
+        // Include the request class
+        require_once plugin_dir_path(__FILE__) . 'class-everxp-request.php';
+        $request = $this->request ?? new EverXP_Request();
 
         // Fetch data
         $results = $request->get_multiple_headings([
-            'folder_id' => (int) $folder_id,
-            'lang'      => sanitize_text_field($lang),
-            'style'     => (int) $style,
-            'min_l'     => (int) $min_l,
-            'max_l'     => (int) $max_l,
-            'limit'     => (int) $limit,
+            'folder_id' => (int) $settings['folder_id'],
+            'lang'      => sanitize_text_field($settings['lang']),
+            'style'     => (int) $settings['style'],
+            'min_l'     => (int) $settings['min_l'],
+            'max_l'     => (int) $settings['max_l'],
+            'limit'     => (int) $settings['limit'],
         ]);
 
         if (empty($results)) {
@@ -324,15 +306,15 @@ class EverXP_Multiple_Elementor_Widget extends Widget_Base {
         // Prepare styles
         $custom_styles = sprintf(
             'text-align: %s; font-family: %s; font-size: %s; color: %s; background-color: %s; border: 1px solid %s; border-radius: %s; padding: %s; rtl: %s;',
-            esc_attr($alignment),
-            esc_attr($font_family),
-            esc_attr($font_size),
-            esc_attr($color),
-            esc_attr($background_color),
-            esc_attr($border_color),
-            esc_attr($border_radius),
-            esc_attr($padding),
-            esc_attr($rtl),
+            esc_attr($settings['alignment']),
+            esc_attr($settings['font_family']),
+            esc_attr($settings['font_size']),
+            esc_attr($settings['text_color']),
+            esc_attr($settings['background_color']),
+            esc_attr($settings['border_color']),
+            esc_attr($settings['border_radius']),
+            esc_attr($settings['padding']),
+            esc_attr($settings['rtl']),
         );
 
 

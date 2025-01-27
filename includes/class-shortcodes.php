@@ -8,6 +8,10 @@ class EverXP_Shortcodes {
 
     private $request; // Define a private property for the request object
 
+    public function set_request($request) {
+        $this->request = $request;
+    }
+    
     public function __construct() {
         $this->request = new EverXP_Request(); // Initialize with the actual request class
     }

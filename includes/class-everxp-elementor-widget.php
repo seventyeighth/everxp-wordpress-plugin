@@ -3,24 +3,16 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
-
 use Elementor\Widget_Base;
 use Elementor\Controls_Manager;
-require_once plugin_dir_path(__FILE__) . 'class-everxp-request.php';
 
 class EverXP_Elementor_Widget extends Widget_Base {
 
     private $request;
 
-    public function __construct() {
-        parent::__construct();
-    }
-
-    // Add a setter for testing purposes
     public function set_request($request) {
         $this->request = $request;
     }
-
 
     public function get_name() {
         return 'everxp_elementor_widget';
@@ -206,46 +198,28 @@ class EverXP_Elementor_Widget extends Widget_Base {
     public function render() {
         $settings = $this->get_settings_for_display();
 
+        // Check if settings are valid
         if (empty($settings) || !is_array($settings)) {
             echo '<p>Error: Missing or invalid widget settings.</p>';
             return;
         }
 
-        // Access settings safely
-        $folder_id = isset($settings['folder_id']) ? $settings['folder_id'] : null;
-        if (empty($folder_id)) {
-            echo '<p>Error: folder_id is required.</p>';
+        if (empty($settings['folder_id'])) {
+            echo '<p>Error: Folder ID is required.</p>';
             return;
         }
 
-
-        $folder_id        = $settings['folder_id'] ?? 0;
-        $lang             = $settings['lang'] ?? 'en';
-        $style            = $settings['style'] ?? 1;
-        $min_l            = $settings['min_l'] ?? 0;
-        $max_l            = $settings['max_l'] ?? 99999;
-        $limit            = $settings['limit'] ?? '1';
-        $alignment        = $settings['alignment'] ?? 'left';
-        $font_family      = $settings['font_family'] ?? 'Arial, sans-serif';
-        $font_size        = $settings['size'] ?? '16px';
-        $color            = $settings['color'] ?? '#000000';
-        $background_color = $settings['background_color'] ?? '#ffffff';
-        $border_color     = $settings['border_color'] ?? 'transparent';
-        $border_radius    = $settings['border_radius'] ?? '3px';
-        $padding          = $settings['padding'] ?? '15px';
-        $rtl              = $settings['rtl'] ?? false;
-
-
+        // Include the request class
         require_once plugin_dir_path(__FILE__) . 'class-everxp-request.php';
-        $this->request = new EverXP_Request(); 
+        $request = $this->request ?? new EverXP_Request();
 
         // Fetch data
         $result = $request->get_random_heading([
-            'folder_id' => (int) $folder_id,
-            'lang'      => sanitize_text_field($lang),
-            'style'     => (int) $style,
-            'min_l'     => (int) $min_l,
-            'max_l'     => (int) $max_l,
+            'folder_id' => (int) $settings['folder_id'],
+            'lang'      => sanitize_text_field($settings['lang']),
+            'style'     => (int) $settings['style'],
+            'min_l'     => (int) $settings['min_l'],
+            'max_l'     => (int) $settings['max_l'],
         ]);
 
         if (!$result) {
@@ -259,11 +233,11 @@ class EverXP_Elementor_Widget extends Widget_Base {
         // Inline styles
         $style = sprintf(
             'text-align: %s; color: %s; font-size: %s; text-decoration: %s; font-family: %s;',
-            esc_attr($alignment),
-            esc_attr($color),
-            esc_attr($size),
-            esc_attr($decoration),
-            esc_attr($font_family)f
+            esc_attr($settings['alignment']),
+            esc_attr($settings['color']),
+            esc_attr($settings['size']),
+            esc_attr($settings['decoration']),
+            esc_attr($settings['font_family'])
         );
 
         // Handle effect: If 'none', output the text without animation classes
