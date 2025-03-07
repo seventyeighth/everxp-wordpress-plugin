@@ -2,7 +2,7 @@
 /*
 Plugin Name: EverXP API Plugin
 Description: Provides API integration with shortcodes, Elementor widgets, and database sync.
-Version: 1.1
+Version: 1.2
 Author: Accessily LTD
 */
 
@@ -26,26 +26,7 @@ add_action('plugins_loaded', function () {
     EverXP_Settings::init();
 });
 
-// Main plugin file or initialization file
 
-add_action('wp_enqueue_scripts', 'everxp_enqueue_scripts');
-
-function everxp_enqueue_scripts() {
-        wp_enqueue_style('everxp-shortcode-style', plugins_url('assets/css/everxp-style.css', __FILE__));
-        wp_enqueue_style('everxp-shortcode-multiple-style', plugins_url('assets/css/everxp-multiple-rows.css', __FILE__));
-
-        wp_enqueue_script('everxp-shortcode-script', plugins_url('assets/js/everxp-script.js', __FILE__), ['jquery'], null, true);
-        wp_enqueue_script('everxp-shortcode-multiple-script', plugins_url('assets/js/everxp-multiple-rows.js', __FILE__), ['jquery'], null, true);
-}
-
-
-function everxp_register_elementor_widgets($widgets_manager) {
-    require_once plugin_dir_path(__FILE__) . 'includes/class-everxp-elementor-widget.php';
-    require_once plugin_dir_path(__FILE__) . 'includes/class-everxp-multiple-elementor-widget.php';
-    $widgets_manager->register(new \EverXP_Elementor_Widget());
-    $widgets_manager->register(new \EverXP_Multiple_Elementor_Widget());
-}
-add_action('elementor/widgets/register', 'everxp_register_elementor_widgets');
 
 
 function everxp_create_custom_tables() {

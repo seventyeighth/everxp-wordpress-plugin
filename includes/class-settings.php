@@ -143,94 +143,72 @@ class EverXP_Settings {
 
 	}
 
-    public static function render_docs_page() {
-        echo '<div class="wrap">';
-        echo '<h1>EverXP Documentation</h1>';
-        echo '<p>Here you can find all the information about implementing and customizing EverXP on your WordPress site.</p>';
+public static function render_docs_page() {
+    echo '<div class="wrap">';
+    echo '<h1>EverXP Documentation</h1>';
+    echo '<p>Welcome to the EverXP Documentation! Below, you will find instructions on how to implement EverXP shortcodes on your WordPress site.</p>';
 
-	    // Implementation Options
-	    echo '<h2>Implementation Options</h2>';
-	    echo '<p>Below are the options for using EverXP in your WordPress site:</p>';
+    // Shortcode Examples
+    echo '<h2>1. Single Text Shortcode</h2>';
+    echo '<p>To display a single dynamic text, use:</p>';
+    echo '<pre>[everxp_shortcode folder_id="6" lang="en" style="1" min_l="50" max_l="200"]</pre>';
 
-		// Shortcode Examples
-		echo '<h3>1. Shortcode Examples</h3>';
-		echo '<p>Copy and paste the following shortcode into your WordPress pages or posts to display dynamic content:</p>';
-		echo '<pre>[everxp_shortcode folder_id="6" lang="en" style="1" min_l="50" max_l="200" text_style="bold" alignment="center" text_color="#ff0000" font_size="18px" decoration="underline" effect="fade" duration="2000"]</pre>';
-		echo '<p>For displaying multiple rows of content, use the following shortcode examples with various display options:</p>';
-		echo '<ul>';
-		echo '<li><strong>Line:</strong> Displays content as a one-liner with separators.</li>';
-		echo '<pre>[everxp_shortcode_multiple folder_id="6" display="line" separator=" | " limit="5" remove_default_styling="false"]</pre>';
-		echo '<li><strong>Slider:</strong> Horizontal sliding content for a carousel effect.</li>';
-		echo '<pre>[everxp_shortcode_multiple folder_id="6" display="slider" limit="5" remove_default_styling="false"]</pre>';
-		echo '<li><strong>News Ticker (Horizontal):</strong> Scrolling ticker for horizontal news updates.</li>';
-		echo '<pre>[everxp_shortcode_multiple folder_id="6" display="news_ticker" rtl="false" scroll_speed="20000" remove_default_styling="false"]</pre>';
-		echo '<li><strong>News Ticker (Vertical):</strong> Vertical scrolling ticker for updates.</li>';
-		echo '<pre>[everxp_shortcode_multiple folder_id="6" display="news_ticker_vertical" rtl="false" scroll_speed="20000" remove_default_styling="false"]</pre>';
-		echo '</ul>';
+    // Multiple Content Display Options
+    echo '<h2>2. Multiple Text Shortcode</h2>';
+    echo '<p>To display multiple dynamic texts, use:</p>';
+    echo '<pre>[everxp_shortcode_multiple folder_id="6" limit="5" separator=" | "]</pre>';
 
-		// Styling and Animation Options Table
-		echo '<h2>Styling and Animation Options</h2>';
-		echo '<p>Customize your content using the attributes below for your shortcodes. Note that some options are specific to single or multiple shortcodes:</p>';
-		echo '<table class="everxp-style-options-table">';
-		echo '<thead><tr><th>Option</th><th>Attribute</th><th>Description</th><th>Example</th></tr></thead>';
-		echo '<tbody>';
-		echo '<tr><td>Folder ID</td><td>folder_id</td><td><strong>Required:</strong> Specifies the folder from which to fetch data.</td><td>[everxp_shortcode folder_id="6"]</td></tr>';
-		echo '<tr><td>Language</td><td>lang</td><td>Defines the language for the content.</td><td>[everxp_shortcode lang="en"]</td></tr>';
-		echo '<tr><td>Style</td><td>style</td><td>Applies the content style. Options: 1 (Default), 2, etc.</td><td>[everxp_shortcode style="1"]</td></tr>';
-		echo '<tr><td>Min Length</td><td>min_l</td><td>Specifies the minimum length of content in characters.</td><td>[everxp_shortcode min_l="50"]</td></tr>';
-		echo '<tr><td>Max Length</td><td>max_l</td><td>Specifies the maximum length of content in characters.</td><td>[everxp_shortcode max_l="500"]</td></tr>';
-		echo '<tr><td>Text Style</td><td>text_style</td><td>Applies styles such as default, bold, italic, or highlight.</td><td>[everxp_shortcode text_style="bold"]</td></tr>';
-		echo '<tr><td>Alignment</td><td>alignment</td><td>Aligns text to left, center, or right.</td><td>[everxp_shortcode alignment="center"]</td></tr>';
-		echo '<tr><td>Text Color</td><td>text_color</td><td>Sets the text color using valid CSS color values.</td><td>[everxp_shortcode text_color="#ff0000"]</td></tr>';
-		echo '<tr><td>Font Size</td><td>font_size</td><td>Defines the font size in valid CSS units.</td><td>[everxp_shortcode font_size="18px"]</td></tr>';
-		echo '<tr><td>Decoration</td><td>decoration</td><td>Adds text decoration such as underline.</td><td>[everxp_shortcode decoration="underline"]</td></tr>';
-		echo '<tr><td>Font Family</td><td>font_family</td><td>Sets the font family for the text.</td><td>[everxp_shortcode font_family="Verdana, sans-serif"]</td></tr>';
-		echo '<tr><td>Effect (Single)</td><td>effect</td><td><strong>Single Shortcode Only:</strong> Defines animation effects like fade, slide, or bounce.</td><td>[everxp_shortcode effect="fade"]</td></tr>';
-		echo '<tr><td>Duration (Single)</td><td>duration</td><td><strong>Single Shortcode Only:</strong> Sets animation duration in milliseconds.</td><td>[everxp_shortcode duration="2000"]</td></tr>';
-		echo '<tr><td>Display (Multiple)</td><td>display</td><td><strong>Multiple Shortcodes Only:</strong> Choose display type: line, slider, news_ticker, or news_ticker_vertical.</td><td>[everxp_shortcode_multiple display="slider"]</td></tr>';
-		echo '<tr><td>Separator</td><td>separator</td><td>Defines a separator for line display.</td><td>[everxp_shortcode_multiple separator=" | "]</td></tr>';
-		echo '<tr><td>Scroll Speed (Multiple)</td><td>scroll_speed</td><td><strong>Multiple Shortcodes Only:</strong> Specifies scroll speed for tickers in milliseconds.</td><td>[everxp_shortcode_multiple scroll_speed="20000"]</td></tr>';
-		echo '<tr><td>RTL (Multiple)</td><td>rtl</td><td><strong>Multiple Shortcodes Only:</strong> Enables Right-to-Left scrolling.</td><td>[everxp_shortcode_multiple rtl="true"]</td></tr>';
-		echo '<tr><td>Remove Default Styling</td><td>remove_default_styling</td><td>Disables default styling.</td><td>[everxp_shortcode_multiple remove_default_styling="true"]</td></tr>';
-		echo '</tbody>';
-		echo '</table>';
+    // Shortcode Options Table
+    echo '<h2>Shortcode Options</h2>';
+    echo '<p>Customize your content with the following attributes:</p>';
 
-		// Inline CSS for Styling
-		echo '<style>
-		    .everxp-style-options-table {
-		        width: 90%;
-		        margin: 20px auto;
-		        border-collapse: collapse;
-		        font-size: 14px;
-		    }
-		    .everxp-style-options-table th,
-		    .everxp-style-options-table td {
-		        border: 1px solid #ddd;
-		        padding: 8px;
-		        text-align: left;
-		    }
-		    .everxp-style-options-table tr:nth-child(even) {
-		        background-color: #f9f9f9;
-		    }
-		    pre {
-		        background-color: #f4f4f4;
-		        padding: 10px;
-		        border: 1px solid #ddd;
-		        border-radius: 5px;
-		        overflow-x: auto;
-		        word-wrap: break-word;
-		    }
-		</style>';
+    echo '<table class="everxp-style-options-table">';
+    echo '<thead><tr><th>Option</th><th>Attribute</th><th>Description</th><th>Example</th></tr></thead>';
+    echo '<tbody>';
+
+    // Basic Options
+    echo '<tr><td>Folder ID</td><td>folder_id</td><td><strong>Required:</strong> Defines the content folder.</td><td>[everxp_shortcode folder_id="6"]</td></tr>';
+    echo '<tr><td>Language</td><td>lang</td><td>Sets the content language.</td><td>[everxp_shortcode lang="en"]</td></tr>';
+    echo '<tr><td>Style</td><td>style</td><td>Defines the content style.</td><td>[everxp_shortcode style="1"]</td></tr>';
+    echo '<tr><td>Min Length</td><td>min_l</td><td>Sets the minimum text length.</td><td>[everxp_shortcode min_l="50"]</td></tr>';
+    echo '<tr><td>Max Length</td><td>max_l</td><td>Sets the maximum text length.</td><td>[everxp_shortcode max_l="500"]</td></tr>';
+    
+    // Multiple Shortcode-Specific Options
+    echo '<tr><td>Limit</td><td>limit</td><td>Defines the number of texts to display.</td><td>[everxp_shortcode_multiple limit="5"]</td></tr>';
+    echo '<tr><td>Separator</td><td>separator</td><td>Sets a separator for multiple texts.</td><td>[everxp_shortcode_multiple separator=" | "]</td></tr>';
+
+    echo '</tbody></table>';
+
+    // Inline CSS for Styling (Minimal)
+    echo '<style>
+        .everxp-style-options-table {
+            width: 90%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .everxp-style-options-table th, .everxp-style-options-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .everxp-style-options-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow-x: auto;
+            word-wrap: break-word;
+        }
+    </style>';
+
+    echo '</div>';
+}
 
 
-
-	    // Elementor Integration
-	    echo '<h3>2. Elementor</h3>';
-	    echo '<p>Use the EverXP Widget in Elementor to integrate dynamic content. Navigate to Elementor Editor, search for <strong>EverXP</strong> in the widget panel, and configure the following options:</p>';
-	 
-
-        echo '</div>';
-    }
 
 
 
@@ -242,7 +220,8 @@ class EverXP_Settings {
 	        $domain = everxp_check_domain(); // Automatically fetch the domain
 
 	        // Redirect to external dashboard for verification
-			$dashboard_url   = 'https://dashboard.everxp.com/login';
+			$dashboard_url   = 'http://localhost/everxp/everxp-dashboard/login';
+			//$dashboard_url = 'https://dashboard.everxp.com/login';
 			$redirect_url    = admin_url('admin.php?page=everxp-settings'); 
 			$secret_key      = 'everxp-team-78'; 
 			$iv_length       = openssl_cipher_iv_length('aes-256-cbc');

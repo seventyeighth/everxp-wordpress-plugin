@@ -3,7 +3,7 @@
     font-family: Arial, sans-serif;
     margin: 20px auto;
     max-width: 800px;
-    border: 2px solid #249600;
+    border: 2px solid grey;
     border-radius: 8px;
     background-color: transparent;
     padding: 15px;
@@ -11,53 +11,33 @@
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* EverXP Credit */
-.everxp-credit {
-    position: absolute;
-    bottom: 5px;
-    right: 10px;
-    font-size: 12px;
-    color: #666;
-    text-align: right;
-    font-style: italic;
-}
-
-.everxp-credit a {
-    color: blue;
-    text-decoration: none;
-    font-weight: bold;
-}
-
-.everxp-credit a:hover {
-    text-decoration: underline;
-}
 
 /* Horizontal Slider */
 .everxp-multi-slider {
     display: flex;
+    justify-content: center;
+    align-items: center;
     overflow: hidden;
-    position: relative;
-    width: 100%;
-    border-radius: 5px;
     white-space: nowrap;
+    text-align: center;
+    min-height: 30px; /* Ensures stable height */
 }
 
 .everxp-multi-slider .multi-slide {
-    flex: 0 0 100%;
-    display: inline-block;
-    padding: 10px;
-    box-sizing: border-box;
-    text-align: center;
-    overflow: hidden;
-    transform: translateX(100%);
     opacity: 0;
-    transition: transform 1s ease-in-out, opacity 1s ease-in-out;
+    transition: opacity 1s ease-in-out;
+    white-space: nowrap;
+    display: none; /* Hide inactive slides completely */
 }
 
 .everxp-multi-slider .multi-slide.active {
-    transform: translateX(0);
+    display: inline-block; /* Show only active slide */
     opacity: 1;
 }
+
+
+
+
 
 /* General styling for news ticker */
 .everxp-news-ticker {
@@ -185,13 +165,6 @@
     opacity: 1;
 }
 
-.everxp-multi-animated.slide {
-    transform: translateX(100%);
-}
-
-.everxp-multi-animated.slide.active {
-    transform: translateX(0);
-}
 
 @keyframes multi-bounce {
     0%, 20%, 50%, 80%, 100% {

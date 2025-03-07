@@ -1,22 +1,25 @@
 document.addEventListener("DOMContentLoaded", function () {
-    const sliders = document.querySelectorAll(".everxp-multi-slider");
-
-    sliders.forEach((slider) => {
-        const slides = slider.querySelectorAll(".multi-slide");
-        console.log('sdfsdf')
+    document.querySelectorAll(".everxp-multi-slider").forEach((slider) => {
+        const slides = Array.from(slider.querySelectorAll(".multi-slide"));
         let currentIndex = 0;
 
-        // Set initial active slide
-        slides[currentIndex].classList.add("active");
+        function showNextSlide() {
+            slides.forEach((slide, index) => {
+                slide.classList.toggle("active", index === currentIndex);
+                slide.style.display = index === currentIndex ? "inline-block" : "none";
+            });
 
-        // Rotate slides
-        setInterval(() => {
-            slides[currentIndex].classList.remove("active");
-            currentIndex = (currentIndex + 1) % slides.length; // Loop back to the first slide
-            slides[currentIndex].classList.add("active");
-        }, parseInt(slider.getAttribute("data-duration")) || 5000);
+            currentIndex = (currentIndex + 1) % slides.length; // Move to the next slide
+        }
+
+        // Initialize first slide
+        showNextSlide();
+        setInterval(showNextSlide, parseInt(slider.getAttribute("data-duration")) || 5000);
     });
 });
+
+
+
 
 document.querySelectorAll('.everxp-news-ticker').forEach((ticker) => {
     const duration = parseInt(ticker.getAttribute('data-duration'), 10) || 10000; // Default: 10s
