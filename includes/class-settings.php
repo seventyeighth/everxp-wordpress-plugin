@@ -220,8 +220,8 @@ public static function render_docs_page() {
 	        $domain = everxp_check_domain(); // Automatically fetch the domain
 
 	        // Redirect to external dashboard for verification
-			$dashboard_url   = 'http://localhost/everxp/everxp-dashboard/login';
-			//$dashboard_url = 'https://dashboard.everxp.com/login';
+			//$dashboard_url   = 'http://localhost/everxp/everxp-dashboard/login';
+			$dashboard_url = 'https://dashboard.everxp.com/login';
 			$redirect_url    = admin_url('admin.php?page=everxp-settings'); 
 			$secret_key      = 'everxp-team-78'; 
 			$iv_length       = openssl_cipher_iv_length('aes-256-cbc');
