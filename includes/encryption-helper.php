@@ -15,7 +15,7 @@ class EverXP_Encryption_Helper {
     // Encrypt data
     public static function encrypt_data($data) {
         $iv = openssl_random_pseudo_bytes(self::$iv_length);
-        $encrypted = openssl_encrypt(json_encode($data, JSON_UNESCAPED_UNICODE), 'aes-256-cbc', self::$key, 0, $iv);
+        $encrypted = openssl_encrypt(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'aes-256-cbc', self::$key, 0, $iv);
         return base64_encode($iv . $encrypted); // Combine IV and encrypted data
     }
 

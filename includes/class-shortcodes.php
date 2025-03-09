@@ -62,7 +62,7 @@ class EverXP_Shortcodes {
                 %s
             </div>',
             esc_attr($cache_buster),
-            esc_html(trim(EverXP_Encryption_Helper::decrypt_data($result['name']), '"'))
+            stripslashes(htmlspecialchars_decode(trim(EverXP_Encryption_Helper::decrypt_data($result['name']), '"')))
         );
 
     }
