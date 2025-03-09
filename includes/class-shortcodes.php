@@ -50,17 +50,17 @@ class EverXP_Shortcodes {
         // If no result is found, return a unique "No Data" message with a cache buster
         if (!$result) {
             return sprintf(
-                '<div class="everxp-text-output no-data" data-cache-buster="%s">
+                '<span class="everxp-text-output no-data" data-cache-buster="%s">
                     <p>No matching data found.</p>
-                </div>',
+                </span>',
                 esc_attr($cache_buster)
             );
         }
 
         return sprintf(
-            '<div class="everxp-text-output" data-cache-buster="%s">
+            '<span class="everxp-text-output" data-cache-buster="%s">
                 %s
-            </div>',
+            </span>',
             esc_attr($cache_buster),
             stripslashes(htmlspecialchars_decode(trim(EverXP_Encryption_Helper::decrypt_data($result['name']), '"')))
         );
@@ -104,9 +104,9 @@ class EverXP_Shortcodes {
         // If no result is found, return a unique "No Data" message with a cache buster
         if (empty($results)) {
             return sprintf(
-                '<div class="everxp-multi-text-output no-data" data-cache-buster="%s">
+                '<span class="everxp-multi-text-output no-data" data-cache-buster="%s">
                     <p>No matching data found.</p>
-                </div>',
+                </span>',
                 esc_attr($cache_buster)
             );
         }
@@ -117,9 +117,9 @@ class EverXP_Shortcodes {
         }
 
         return sprintf(
-            '<div class="everxp-multi-text-output" data-cache-buster="%s">
+            '<span class="everxp-multi-text-output" data-cache-buster="%s">
                 %s
-            </div>',
+            </span>',
             esc_attr($cache_buster),
             implode(esc_html($atts['separator']), $sentences)
         );
