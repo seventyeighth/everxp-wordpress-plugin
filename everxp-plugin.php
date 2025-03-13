@@ -2,7 +2,7 @@
 /*
 Plugin Name: EverXP API Plugin
 Description: Provides API integration with shortcodes, Elementor widgets, and database sync.
-Version: 1.4
+Version: 1.5
 Author: Accessily LTD
 */
 
@@ -15,6 +15,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-sync.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-settings.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-everxp-cron.php';
 require_once plugin_dir_path(__FILE__) . 'includes/encryption-helper.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-everxp-tracker.php';
 
 
 
@@ -24,9 +25,8 @@ add_action('plugins_loaded', function () {
     EverXP_Shortcodes::init();
     EverXP_Sync::init();
     EverXP_Settings::init();
+    EverXP_Tracker::init();
 });
-
-
 
 
 function everxp_create_custom_tables() {
@@ -101,7 +101,11 @@ function everxp_create_custom_tables() {
         data_id int(11) NOT NULL,
         timestamp int(11) NOT NULL,
         user_identifier varchar(100) DEFAULT NULL,
-        synced tinyint(1) DEFAULT 0,
+        event_type varchar(50) NOT NULL,
+        event_data JSON DEFAULT NULL, -- Matches dashboard DB structure
+        referrer_url varchar(255) DEFAULT NULL,
+        utm_parameters JSON DEFAULT NULL, -- Matches dashboard DB structure
+        synced tinyint(1) DEFAULT 0, -- Marks if data has been synced to API
         PRIMARY KEY (ID)
     ) $charset_collate;";
 
@@ -137,6 +141,49 @@ function everxp_add_foreign_keys() {
 }
 
 
+/**
+ * Migration script to update 'api_user_logs' table in WordPress database.
+ */
+function everxp_migrate_api_user_logs() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'api_user_logs';
+
+    // Get the current columns in the table
+    $columns = $wpdb->get_results("SHOW COLUMNS FROM $table_name", ARRAY_A);
+    $existing_columns = array_column($columns, 'Field');
+
+    // Define required columns with their SQL statements
+    $missing_columns = [];
+
+    if (!in_array('event_type', $existing_columns)) {
+        $missing_columns[] = "ADD COLUMN event_type VARCHAR(50) NOT NULL";
+    }
+    if (!in_array('event_data', $existing_columns)) {
+        $missing_columns[] = "ADD COLUMN event_data JSON DEFAULT NULL";
+    }
+    if (!in_array('referrer_url', $existing_columns)) {
+        $missing_columns[] = "ADD COLUMN referrer_url VARCHAR(255) DEFAULT NULL";
+    }
+    if (!in_array('utm_parameters', $existing_columns)) {
+        $missing_columns[] = "ADD COLUMN utm_parameters JSON DEFAULT NULL";
+    }
+    if (!in_array('synced', $existing_columns)) {
+        $missing_columns[] = "ADD COLUMN synced TINYINT(1) DEFAULT 0";
+    }
+
+    // If any column is missing, modify the table
+    if (!empty($missing_columns)) {
+        $alter_query = "ALTER TABLE $table_name " . implode(", ", $missing_columns) . ";";
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        $wpdb->query($alter_query);
+    }
+}
+
+// Run the migration on plugin activation
+register_activation_hook(__FILE__, 'everxp_migrate_api_user_logs');
+
+
+
 register_activation_hook(__FILE__, function() {
     ob_start(); // Start output buffering
     everxp_create_custom_tables();
@@ -147,6 +194,8 @@ register_activation_hook(__FILE__, function() {
         error_log('Unexpected output during activation: ' . $unexpected_output);
     }
 });
+
+
 
 // Schedule the cron event
 register_activation_hook(__FILE__, 'everxp_schedule_cron_job');

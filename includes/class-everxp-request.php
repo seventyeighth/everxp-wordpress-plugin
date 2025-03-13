@@ -25,7 +25,6 @@ class EverXP_Request {
 
 
     public function get_multiple_headings($params) {
-
         $user_identifier = self::everxp_get_user_identifier();
 
         $query = $this->wpdb->prepare(
@@ -56,14 +55,25 @@ class EverXP_Request {
         $data = $this->wpdb->get_results($query, ARRAY_A);
 
         if ($data) {
-            foreach ($data as $row)
-            {
-                $this->log_fetch($row['folder_id'], $row['heading_id'], $user_identifier);
+            foreach ($data as &$row) {
+                // Extract UTM parameters from the sentence in the database
+                $utm_parameters = $this->extract_utms_from_heading(stripslashes(htmlspecialchars_decode(trim(EverXP_Encryption_Helper::decrypt_data($row['name']), '"'))));
+
+                $event_data = [
+                    'folder_id' => $row['folder_id'],
+                    'heading_id' => $row['heading_id']
+                ];
+
+                // Log event with extracted UTM parameters
+                $this->log_fetch($row['folder_id'], $row['heading_id'], $user_identifier, 'pageview', $event_data, $utm_parameters);
             }
         }
 
         return $data;
     }
+
+
+
 
     /**
      * Fetch a random heading based on parameters and domain settings
@@ -121,8 +131,18 @@ class EverXP_Request {
         $data = $this->wpdb->get_row($query, ARRAY_A);
 
         if ($data) {
-            // Log the new fetch
-            $this->log_fetch($data['folder_id'], $data['heading_id'], $user_identifier);
+            // Extract UTM parameters from the stored heading
+            $utm_parameters = $this->extract_utms_from_heading(stripslashes(htmlspecialchars_decode(trim(EverXP_Encryption_Helper::decrypt_data($data['name']), '"'))));
+
+            // Prepare event data
+            $event_data = [
+                    'folder_id' => $data['folder_id'],
+                    'heading_id' => $data['heading_id']
+            ];
+
+
+            // Log the event with UTM parameters
+            $this->log_fetch($data['folder_id'], $data['heading_id'], $user_identifier, 'pageview', $event_data, $utm_parameters);
         }
 
         return $data ?: null;
@@ -170,7 +190,8 @@ class EverXP_Request {
      * @param string $user_identifier
      */
     private function handle_freshness($freshness, $folder_id, $user_identifier) {
-        if ($freshness === 1) {
+
+        if ($freshness == 1) {
             // Always fetch new data; no log checks needed
             return null; // Indicates fetch new data
         }
@@ -231,25 +252,33 @@ class EverXP_Request {
      * @param int $data_id
      * @param string $user_identifier
      */
-    private function log_fetch($folder_id, $data_id, $user_identifier) {
-        $this->wpdb->insert(
-            "{$this->wpdb->prefix}api_user_logs",
+    private function log_fetch($folder_id, $data_id, $user_identifier, $event_type = 'pageview', $event_data = []) {
+
+        global $wpdb;
+        $wpdb->insert(
+            "{$wpdb->prefix}api_user_logs",
             [
-                'user_id'         => get_current_user_id(), // Default to 0 if no user is logged in
+                'user_id'         => get_current_user_id() ?: NULL,
                 'endpoint_id'     => $folder_id,
                 'data_id'         => $data_id,
                 'timestamp'       => time(),
                 'user_identifier' => $user_identifier,
+                'event_type'      => sanitize_text_field($event_type),
+                'event_data'      => json_encode($event_data),
+                'utm_parameters'  => NULL, // Remove UTM tracking for pageviews
+                'referrer_url'    => isset($_SERVER['HTTP_REFERER']) ? esc_url($_SERVER['HTTP_REFERER']) : NULL,
+                'synced'          => 0
             ],
-            [
-                '%d', '%d', '%d', '%d', '%s'
-            ]
+            ['%d', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%d']
         );
 
-        if ($this->wpdb->last_error) {
-            error_log('Log Insertion Error: ' . $this->wpdb->last_error);
+        if ($wpdb->last_error) {
+            error_log('Log Insertion Error: ' . $wpdb->last_error);
         }
     }
+
+
+
 
     /**
      * Get the user identifier.
@@ -280,4 +309,37 @@ class EverXP_Request {
 
         return $hashed_ip;
     }
+
+    private function extract_utms_from_heading($heading) {
+        $utm_params = [];
+
+        // Regular expression to find href attributes in anchor tags
+        preg_match_all('/<a\s+[^>]*href=["\']?([^"\'>]+)["\']?/i', $heading, $matches);
+
+        if (!empty($matches[1])) {
+            foreach ($matches[1] as $url) {
+                // Ignore mailto and javascript links
+                if (strpos($url, 'mailto:') === 0 || strpos($url, 'javascript:') === 0) {
+                    continue;
+                }
+
+                // Parse the URL
+                $parsed_url = parse_url($url);
+                if (!isset($parsed_url['query'])) continue;
+
+                parse_str($parsed_url['query'], $query_params);
+
+                // Extract only valid UTM parameters
+                foreach (['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as $utm_key) {
+                    if (isset($query_params[$utm_key])) {
+                        $utm_params[$utm_key] = sanitize_text_field($query_params[$utm_key]);
+                    }
+                }
+            }
+        }
+
+        return $utm_params;
+    }
+
+
 }

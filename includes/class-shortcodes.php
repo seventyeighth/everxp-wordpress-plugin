@@ -113,7 +113,7 @@ class EverXP_Shortcodes {
 
         $sentences = [];
         foreach ($results as $row) {
-            $sentences[] = esc_html(trim(EverXP_Encryption_Helper::decrypt_data($row['name']), '"'));
+            $sentences[] = stripslashes(htmlspecialchars_decode(trim(EverXP_Encryption_Helper::decrypt_data($row['name']), '"')));
         }
 
         return sprintf(
