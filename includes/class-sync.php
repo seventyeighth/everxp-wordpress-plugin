@@ -123,12 +123,7 @@ class EverXP_Sync {
         self::everxp_insert_data($insert_data);
 
         // Sync Logs
-        if (!function_exists('everxp_run_cron_now')) {
-            function everxp_run_cron_now() {
-                do_action('everxp_sync_logs_cron');
-            }
-        }
-        everxp_run_cron_now();
+        do_action('everxp_sync_logs_cron');
 
         return ['success' => true];
 
