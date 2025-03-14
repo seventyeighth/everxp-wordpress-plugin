@@ -2,7 +2,7 @@
 /*
 Plugin Name: EverXP API Plugin
 Description: Provides API integration with shortcodes, Elementor widgets, and database sync.
-Version: 1.6.3
+Version: 1.6.4
 Author: Accessily LTD
 */
 
@@ -144,40 +144,40 @@ function everxp_add_foreign_keys() {
 /**
  * Migration script to update 'api_user_logs' table in WordPress database.
  */
-function everxp_migrate_api_user_logs() {
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'api_user_logs';
+// function everxp_migrate_api_user_logs() {
+//     global $wpdb;
+//     $table_name = $wpdb->prefix . 'api_user_logs';
 
-    // Get the current columns in the table
-    $columns = $wpdb->get_results("SHOW COLUMNS FROM $table_name", ARRAY_A);
-    $existing_columns = array_column($columns, 'Field');
+//     // Get the current columns in the table
+//     $columns = $wpdb->get_results("SHOW COLUMNS FROM $table_name", ARRAY_A);
+//     $existing_columns = array_column($columns, 'Field');
 
-    // Define required columns with their SQL statements
-    $missing_columns = [];
+//     // Define required columns with their SQL statements
+//     $missing_columns = [];
 
-    if (!in_array('event_type', $existing_columns)) {
-        $missing_columns[] = "ADD COLUMN event_type VARCHAR(50) NOT NULL";
-    }
-    if (!in_array('event_data', $existing_columns)) {
-        $missing_columns[] = "ADD COLUMN event_data JSON DEFAULT NULL";
-    }
-    if (!in_array('referrer_url', $existing_columns)) {
-        $missing_columns[] = "ADD COLUMN referrer_url VARCHAR(255) DEFAULT NULL";
-    }
-    if (!in_array('utm_parameters', $existing_columns)) {
-        $missing_columns[] = "ADD COLUMN utm_parameters JSON DEFAULT NULL";
-    }
-    if (!in_array('synced', $existing_columns)) {
-        $missing_columns[] = "ADD COLUMN synced TINYINT(1) DEFAULT 0";
-    }
+//     if (!in_array('event_type', $existing_columns)) {
+//         $missing_columns[] = "ADD COLUMN event_type VARCHAR(50) NOT NULL";
+//     }
+//     if (!in_array('event_data', $existing_columns)) {
+//         $missing_columns[] = "ADD COLUMN event_data JSON DEFAULT NULL";
+//     }
+//     if (!in_array('referrer_url', $existing_columns)) {
+//         $missing_columns[] = "ADD COLUMN referrer_url VARCHAR(255) DEFAULT NULL";
+//     }
+//     if (!in_array('utm_parameters', $existing_columns)) {
+//         $missing_columns[] = "ADD COLUMN utm_parameters JSON DEFAULT NULL";
+//     }
+//     if (!in_array('synced', $existing_columns)) {
+//         $missing_columns[] = "ADD COLUMN synced TINYINT(1) DEFAULT 0";
+//     }
 
-    // If any column is missing, modify the table
-    if (!empty($missing_columns)) {
-        $alter_query = "ALTER TABLE $table_name " . implode(", ", $missing_columns) . ";";
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        $wpdb->query($alter_query);
-    }
-}
+//     // If any column is missing, modify the table
+//     if (!empty($missing_columns)) {
+//         $alter_query = "ALTER TABLE $table_name " . implode(", ", $missing_columns) . ";";
+//         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+//         $wpdb->query($alter_query);
+//     }
+// }
 
 // Run the migration on plugin activation
 register_activation_hook(__FILE__, 'everxp_migrate_api_user_logs');

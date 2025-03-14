@@ -25,38 +25,91 @@ class EverXP_Sync {
             echo '<div class="notice notice-success is-dismissible"><p>Logs synced successfully!</p></div>';
         }
 
+        if (isset($_POST['clear_logs'])) {
+            self::truncate_logs_table();
+            echo '<div class="notice notice-warning is-dismissible"><p>Logs table has been cleared successfully!</p></div>';
+        }
+
         global $wpdb;
 
         // Get counts
         $headings_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}api_endpoint_headings");
         $banks_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}user_banks");
-        $unsynced_logs = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}api_user_logs WHERE synced = 0");
+        $logs_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}api_user_logs");
+        $logs_to_sync_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}api_user_logs WHERE synced = 0");
 
         // Retrieve the last sync timestamp
         $last_sync = get_option('everxp_last_sync', 'Never synced');
 
+        echo '<style>
+            .wp-list-table {
+                margin-top: 20px;
+                border-collapse: collapse;
+                width: 100%;
+            }
+            .wp-list-table th, .wp-list-table td {
+                padding: 10px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            .wp-list-table th {
+                background-color: #f1f1f1;
+            }
+        </style>';
+
+        // Render the page content
         echo '<h1>Sync Data</h1>';
-        echo '<p>Click the button below to sync all data from your EverXP Dashboard.</p>';
+        echo '<p>Click the buttons below to sync data, sync logs, or clear logs.</p>';
         echo '<p><strong>Last Sync:</strong> ' . esc_html($last_sync) . '</p>';
 
+        // Render the table
         echo '<table class="wp-list-table widefat fixed striped" style="width: 80%; margin: 20px 0;">';
-        echo '<thead><tr><th>Data Type</th><th>Count</th></tr></thead>';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th>Data Type</th>';
+        echo '<th>Count</th>';
+        echo '</tr>';
+        echo '</thead>';
         echo '<tbody>';
-        echo '<tr><td>Number of Headings Synced</td><td>' . esc_html($headings_count) . '</td></tr>';
-        echo '<tr><td>Number of Banks Synced</td><td>' . esc_html($banks_count) . '</td></tr>';
-        echo '<tr><td>Unsynced Logs</td><td>' . esc_html($unsynced_logs) . '</td></tr>';
-        echo '</tbody></table>';
+        echo '<tr>';
+        echo '<td>Number of Headings Synced</td>';
+        echo '<td>' . esc_html($headings_count) . '</td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<td>Number of Banks Synced</td>';
+        echo '<td>' . esc_html($banks_count) . '</td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<td>Number of Logs Stored</td>';
+        echo '<td>' . esc_html($logs_count) . '</td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<td>Number of Logs to Sync</strong> (unsynced)</td>';
+        echo '<td>' . esc_html($logs_to_sync_count) . '</td>';
+        echo '</tr>';
+        echo '</tbody>';
+        echo '</table>';
 
-        // Add Sync Data and Sync Logs Buttons
+        // Buttons: Sync Now, Sync Logs, Clear Logs
         echo '<form method="post">';
-        wp_nonce_field('everxp_sync_action', '_everxp_nonce');
-        echo '<button type="submit" name="sync_data" class="button button-primary">Sync Now</button>';
-        echo '&nbsp;&nbsp;';
+        wp_nonce_field('everxp_sync_action', '_everxp_nonce'); // Generate nonce
+        echo '<button type="submit" name="sync_data" class="button button-primary">Sync Data</button>';
+        echo '&nbsp;';
         echo '<button type="submit" name="sync_logs" class="button button-secondary">Sync Logs</button>';
+        echo '&nbsp;';
+        echo '<button type="submit" name="clear_logs" class="button button-danger" onclick="return confirm(\'Are you sure you want to clear all logs? This cannot be undone.\')">Clear Logs</button>';
         echo '</form>';
     }
 
+    /**
+     * Function to truncate logs table
+     */
+    private static function truncate_logs_table() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'api_user_logs';
 
+        $wpdb->query("TRUNCATE TABLE $table_name"); // Clears all logs and resets auto-increment
+    }
 
 
     public static function sync_data_from_dashboard() {
