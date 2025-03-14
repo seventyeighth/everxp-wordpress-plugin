@@ -25,6 +25,7 @@ class EverXP_Cron {
 
         // Prepare data for API
 		$api_url           = 'https://api.everxp.com/logs/sync_logs';
+        //$api_url           = 'http://localhost/everxp/everxp-api/logs/sync_logs';
 		$api_key           = get_option('everxp_api_key');
 		$decrypted_api_key = EverXP_Encryption_Helper::decrypt($api_key);
         if (!$decrypted_api_key) {
@@ -56,6 +57,7 @@ class EverXP_Cron {
 
         $response_body = wp_remote_retrieve_body($response);
         $decoded_response = json_decode($response_body, true);
+
 
         if ($decoded_response['status'] === 'success') {
             // Mark logs as synced

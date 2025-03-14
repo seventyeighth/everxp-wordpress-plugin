@@ -20,64 +20,43 @@ class EverXP_Sync {
             }
         }
 
+        if (isset($_POST['sync_logs'])) {
+            self::sync_logs_manually();
+            echo '<div class="notice notice-success is-dismissible"><p>Logs synced successfully!</p></div>';
+        }
+
         global $wpdb;
 
         // Get counts
         $headings_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}api_endpoint_headings");
         $banks_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}user_banks");
+        $unsynced_logs = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}api_user_logs WHERE synced = 0");
 
         // Retrieve the last sync timestamp
         $last_sync = get_option('everxp_last_sync', 'Never synced');
 
-        echo '<style>
-            .wp-list-table {
-                margin-top: 20px;
-                border-collapse: collapse;
-                width: 100%;
-            }
-            .wp-list-table th, .wp-list-table td {
-                padding: 10px;
-                text-align: left;
-                border-bottom: 1px solid #ddd;
-            }
-            .wp-list-table th {
-                background-color: #f1f1f1;
-            }
-        </style>';
-
-
-        // Render the page content
         echo '<h1>Sync Data</h1>';
         echo '<p>Click the button below to sync all data from your EverXP Dashboard.</p>';
         echo '<p><strong>Last Sync:</strong> ' . esc_html($last_sync) . '</p>';
 
-        // Render the table
         echo '<table class="wp-list-table widefat fixed striped" style="width: 80%; margin: 20px 0;">';
-        echo '<thead>';
-        echo '<tr>';
-        echo '<th>Data Type</th>';
-        echo '<th>Count</th>';
-        echo '</tr>';
-        echo '</thead>';
+        echo '<thead><tr><th>Data Type</th><th>Count</th></tr></thead>';
         echo '<tbody>';
-        echo '<tr>';
-        echo '<td>Number of Headings Synced</td>';
-        echo '<td>' . esc_html($headings_count) . '</td>';
-        echo '</tr>';
-        echo '<tr>';
-        echo '<td>Number of Banks Synced</td>';
-        echo '<td>' . esc_html($banks_count) . '</td>';
-        echo '</tr>';
-        echo '</tbody>';
-        echo '</table>';
+        echo '<tr><td>Number of Headings Synced</td><td>' . esc_html($headings_count) . '</td></tr>';
+        echo '<tr><td>Number of Banks Synced</td><td>' . esc_html($banks_count) . '</td></tr>';
+        echo '<tr><td>Unsynced Logs</td><td>' . esc_html($unsynced_logs) . '</td></tr>';
+        echo '</tbody></table>';
 
-        // Sync button
+        // Add Sync Data and Sync Logs Buttons
         echo '<form method="post">';
-        wp_nonce_field('everxp_sync_action', '_everxp_nonce'); // Generate nonce
+        wp_nonce_field('everxp_sync_action', '_everxp_nonce');
         echo '<button type="submit" name="sync_data" class="button button-primary">Sync Now</button>';
+        echo '&nbsp;&nbsp;';
+        echo '<button type="submit" name="sync_logs" class="button button-secondary">Sync Logs</button>';
         echo '</form>';
-
     }
+
+
 
 
     public static function sync_data_from_dashboard() {
@@ -127,6 +106,23 @@ class EverXP_Sync {
 
         return ['success' => false, 'message' => $data['message'] ?? 'Unknown error'];
     }
+
+    public static function sync_logs_manually() {
+        if (!current_user_can('manage_options')) {
+            wp_die('You do not have sufficient permissions to access this page.');
+        }
+
+        if (!isset($_POST['_everxp_nonce']) || !wp_verify_nonce($_POST['_everxp_nonce'], 'everxp_sync_action')) {
+            wp_die('Unauthorized action.');
+        }
+
+        if (class_exists('EverXP_Cron')) {
+            EverXP_Cron::sync_logs_to_api(); // Manually trigger logs sync
+        } else {
+            error_log('EverXP_Cron class not found. Unable to sync logs.');
+        }
+    }
+
 
     private static function everxp_insert_data($data) 
     {
