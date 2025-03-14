@@ -97,7 +97,7 @@ class EverXP_Sync {
         echo '&nbsp;';
         echo '<button type="submit" name="sync_logs" class="button button-secondary">Sync Logs</button>';
         echo '&nbsp;';
-        echo '<button type="submit" name="clear_logs" class="button button-danger" onclick="return confirm(\'Are you sure you want to clear all logs? This cannot be undone.\')">Clear Logs</button>';
+        echo '<button type="submit" name="clear_logs" class="button button-secondary" onclick="return confirm(\'Are you sure you want to clear all logs? This cannot be undone.\')">Clear Logs</button>';
         echo '</form>';
     }
 
