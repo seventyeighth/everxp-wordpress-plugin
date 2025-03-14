@@ -3,6 +3,7 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
+
 class EverXP_Sync {
     public static function init() {
 
@@ -121,10 +122,6 @@ class EverXP_Sync {
         $insert_data = json_decode(wp_remote_retrieve_body($response), true);
         // Save the synced data to the WordPress database
         self::everxp_insert_data($insert_data);
-
-        // Sync Logs
-        do_action('everxp_sync_logs_cron');
-
         return ['success' => true];
 
 
