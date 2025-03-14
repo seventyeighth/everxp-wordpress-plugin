@@ -75,6 +75,7 @@ class EverXP_Sync {
         wp_nonce_field('everxp_sync_action', '_everxp_nonce'); // Generate nonce
         echo '<button type="submit" name="sync_data" class="button button-primary">Sync Now</button>';
         echo '</form>';
+
     }
 
 
@@ -97,7 +98,7 @@ class EverXP_Sync {
         }
 
         // API endpoint for syncing data
-        //$url = 'http://localhost:8888/GitHub/EverXP/everxp-api/v2/request';
+        //$url = 'http://localhost/everxp/everxp-api/v2/request';
         $url = 'https://api.everxp.com/v2/request';
 
         // Make the API request
@@ -120,6 +121,15 @@ class EverXP_Sync {
         $insert_data = json_decode(wp_remote_retrieve_body($response), true);
         // Save the synced data to the WordPress database
         self::everxp_insert_data($insert_data);
+
+        // Sync Logs
+        if (!function_exists('everxp_run_cron_now')) {
+            function everxp_run_cron_now() {
+                do_action('everxp_sync_logs_cron');
+            }
+        }
+        everxp_run_cron_now();
+
         return ['success' => true];
 
 

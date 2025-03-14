@@ -2,7 +2,7 @@
 /*
 Plugin Name: EverXP API Plugin
 Description: Provides API integration with shortcodes, Elementor widgets, and database sync.
-Version: 1.5
+Version: 1.6
 Author: Accessily LTD
 */
 
@@ -184,6 +184,8 @@ register_activation_hook(__FILE__, 'everxp_migrate_api_user_logs');
 
 
 
+
+
 register_activation_hook(__FILE__, function() {
     ob_start(); // Start output buffering
     everxp_create_custom_tables();
@@ -194,7 +196,6 @@ register_activation_hook(__FILE__, function() {
         error_log('Unexpected output during activation: ' . $unexpected_output);
     }
 });
-
 
 
 // Schedule the cron event
