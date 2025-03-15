@@ -58,10 +58,12 @@ class EverXP_Shortcodes {
         }
 
         return sprintf(
-            '<span class="everxp-text-output" data-cache-buster="%s">
+            '<span class="everxp-text-output" data-cache-buster="%s" data-folder-id="%s" data-heading-id="%s">
                 %s
             </span>',
             esc_attr($cache_buster),
+            esc_attr($result['folder_id']),
+            esc_attr($result['heading_id']), // Include heading ID
             stripslashes(htmlspecialchars_decode(trim(EverXP_Encryption_Helper::decrypt_data($result['name']), '"')))
         );
 
@@ -112,15 +114,19 @@ class EverXP_Shortcodes {
         }
 
         $sentences = [];
+        $heading_ids = [];
         foreach ($results as $row) {
             $sentences[] = stripslashes(htmlspecialchars_decode(trim(EverXP_Encryption_Helper::decrypt_data($row['name']), '"')));
+            $heading_ids[] = esc_attr($row['heading_id']);
         }
 
         return sprintf(
-            '<span class="everxp-multi-text-output" data-cache-buster="%s">
+            '<span class="everxp-multi-text-output" data-cache-buster="%s" data-folder-id="%s" data-heading-id="%s">
                 %s
             </span>',
             esc_attr($cache_buster),
+            esc_attr($atts['folder_id']),
+            implode(',', $heading_ids), // Include all heading IDs
             implode(esc_html($atts['separator']), $sentences)
         );
     }

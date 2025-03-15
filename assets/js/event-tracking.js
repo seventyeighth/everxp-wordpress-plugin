@@ -1,6 +1,36 @@
 document.addEventListener("DOMContentLoaded", function () {
     console.log("EverXP Event Tracking Loaded");
 
+    // ✅ Function to Track Pageviews for EverXP Text Blocks
+    function trackPageView() {
+        document.querySelectorAll(".everxp-text-output, .everxp-multi-text-output").forEach(element => {
+            let folderId = element.getAttribute("data-folder-id");
+            let headingId = element.getAttribute("data-heading-id") || null;
+
+            if (!folderId) return; // Skip if no folder ID
+
+            // console.log(`🚀 Tracking EverXP Page View: Folder ID = ${folderId}, Heading ID = ${headingId}`);
+
+            let eventData = {
+                eventType: "pageview",
+                eventData: {
+                    referrer_url: document.referrer || "direct",
+                    utm_parameters: {
+                        utm_source: 'everxp',
+                        utm_medium: document.referrer || "direct",
+                        utm_campaign: folderId,
+                        utm_term: headingId
+                    }
+                }
+            };
+
+            sendEvent(eventData);
+        });
+    }
+
+    // ✅ Execute Pageview Tracking on Load
+    trackPageView();
+
     // ✅ Store EverXP UTM Parameters in a Cookie (for non-link events)
     function storeUTMs() {
         let urlParams = new URLSearchParams(window.location.search);
@@ -208,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(response => response.json())
         .then(data => {
-            console.log("✅ EverXP Event Sent Successfully");
+            // console.log("✅ EverXP Event Sent Successfully");
             if (callback) callback();
         })
         .catch(error => console.error("❌ Event Tracking Error:", error));

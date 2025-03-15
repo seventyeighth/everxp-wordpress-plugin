@@ -65,7 +65,7 @@ class EverXP_Request {
                 ];
 
                 // Log event with extracted UTM parameters
-                $this->log_fetch($row['folder_id'], $row['heading_id'], $user_identifier, 'pageview', $event_data, $utm_parameters);
+                $this->log_fetch($row['folder_id'], $row['heading_id'], $user_identifier, 'request', $event_data, $utm_parameters);
             }
         }
 
@@ -142,7 +142,7 @@ class EverXP_Request {
 
 
             // Log the event with UTM parameters
-            $this->log_fetch($data['folder_id'], $data['heading_id'], $user_identifier, 'pageview', $event_data, $utm_parameters);
+            $this->log_fetch($data['folder_id'], $data['heading_id'], $user_identifier, 'request', $event_data, $utm_parameters);
         }
 
         return $data ?: null;
@@ -252,7 +252,7 @@ class EverXP_Request {
      * @param int $data_id
      * @param string $user_identifier
      */
-    private function log_fetch($folder_id, $data_id, $user_identifier, $event_type = 'pageview', $event_data = []) {
+    private function log_fetch($folder_id, $data_id, $user_identifier, $event_type = 'request', $event_data = []) {
 
         global $wpdb;
         $wpdb->insert(
@@ -265,7 +265,7 @@ class EverXP_Request {
                 'user_identifier' => $user_identifier,
                 'event_type'      => sanitize_text_field($event_type),
                 'event_data'      => json_encode($event_data),
-                'utm_parameters'  => NULL, // Remove UTM tracking for pageviews
+                'utm_parameters'  => NULL, // Remove UTM tracking for requests
                 'referrer_url'    => isset($_SERVER['HTTP_REFERER']) ? esc_url($_SERVER['HTTP_REFERER']) : NULL,
                 'synced'          => 0
             ],
