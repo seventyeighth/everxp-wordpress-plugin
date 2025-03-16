@@ -53,9 +53,16 @@ class EverXP_Tracker {
             true
         );
 
+        // Get and decrypt the API key from WordPress options
+        $encrypted_api_key = get_option('everxp_api_key');
+        $decrypted_api_key = EverXP_Encryption_Helper::decrypt($encrypted_api_key);
+
+
         wp_localize_script('everxp-event-tracking', 'everxpTracker', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'ajax_action' => 'track_event'
+            'ajax_url' => 'https://api.everxp.com/logs/track_event',
+            'auth_token' => $decrypted_api_key,
+            'user_identifier' => self::everxp_get_user_identifier()
+
         ]);
     }
 

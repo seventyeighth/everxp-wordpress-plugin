@@ -235,18 +235,23 @@ document.addEventListener("DOMContentLoaded", function () {
         return utmData;
     }
 
-    // Utility: Send Event to WordPress AJAX
     function sendEvent(eventData, callback) {
         console.log("Sending Event:", eventData);
 
-        fetch(everxpTracker.ajax_url + "?action=" + everxpTracker.ajax_action, {
+        fetch(everxpTracker.ajax_url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(eventData),
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + everxpTracker.auth_token
+            },
+            body: JSON.stringify({
+                ...eventData, // Spread existing event data
+                user_identifier: everxpTracker.user_identifier // New parameter added
+            }),
         })
         .then(response => response.json())
         .then(data => {
-            // console.log("✅ EverXP Event Sent Successfully");
+            console.log("✅ EverXP Event Sent Successfully", data);
             if (callback) callback();
         })
         .catch(error => console.error("❌ Event Tracking Error:", error));
