@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // console.log(`🚀 Tracking EverXP Page View: Folder ID = ${folderId}, Heading ID = ${headingId}`);
 
             let eventData = {
+                cache_buster: new Date().getTime(),
                 eventType: "pageview",
                 eventData: {
                     referrer_url: document.referrer || "direct",
@@ -66,6 +67,7 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("🚀 EverXP Link Click Detected:", target.href);
 
             let eventData = {
+                cache_buster: new Date().getTime(),
                 eventType: "link_click",
                 eventData: {
                     url: target.href,
@@ -89,6 +91,7 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("🚀 EverXP Checkout Initiated Detected");
 
             let eventData = {
+                cache_buster: new Date().getTime(),
                 eventType: "checkout_initiated",
                 eventData: {
                     utm_parameters: storedUTMs
@@ -105,6 +108,7 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("🚀 EverXP Checkout Initiated (Page Load)");
 
             let eventData = {
+                cache_buster: new Date().getTime(),
                 eventType: "checkout_initiated",
                 eventData: {
                     utm_parameters: storedUTMs
@@ -140,6 +144,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log("🚀 EverXP Add to Cart Detected:", productName);
 
         let eventData = {
+            cache_buster: new Date().getTime(),
             eventType: "add_to_cart",
             eventData: {
                 product_id: productId,
@@ -163,6 +168,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log("🚀 EverXP Purchase Completed:", orderId);
 
         let eventData = {
+            cache_buster: new Date().getTime(),
             eventType: "purchase",
             eventData: {
                 order_id: orderId || "unknown",
@@ -182,6 +188,7 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("🚀 EverXP User Registration Detected");
 
             let eventData = {
+                cache_buster: new Date().getTime(),
                 eventType: "user_registration",
                 eventData: {
                     utm_parameters: storedUTMs
@@ -202,6 +209,7 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log("🚀 EverXP Form Submission Detected:", formId);
 
         let eventData = {
+            cache_buster: new Date().getTime(),
             eventType: "form_submission",
             eventData: {
                 form_id: formId,
