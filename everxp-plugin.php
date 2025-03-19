@@ -2,7 +2,7 @@
 /*
 Plugin Name: EverXP API Plugin
 Description: Provides API integration with shortcodes, Elementor widgets, and database sync.
-Version: 1.6.9
+Version: 1.7
 Author: Accessily LTD
 */
 
@@ -180,7 +180,7 @@ function everxp_add_foreign_keys() {
 // }
 
 // Run the migration on plugin activation
-register_activation_hook(__FILE__, 'everxp_migrate_api_user_logs');
+// register_activation_hook(__FILE__, 'everxp_migrate_api_user_logs');
 
 
 
