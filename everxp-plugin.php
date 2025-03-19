@@ -2,7 +2,7 @@
 /*
 Plugin Name: EverXP API Plugin
 Description: Provides API integration with shortcodes, Elementor widgets, and database sync.
-Version: 1.6.8
+Version: 1.6.9
 Author: Accessily LTD
 */
 
@@ -131,13 +131,13 @@ function everxp_add_foreign_keys() {
         ADD CONSTRAINT user_bank_headings_ibfk_1 FOREIGN KEY (folder_id) REFERENCES $table_user_banks (id) ON DELETE CASCADE");
 
     $wpdb->query("ALTER TABLE $table_user_bank_headings 
-        ADD CONSTRAINT user_bank_headings_ibfk_2 FOREIGN KEY (user_id) REFERENCES {$wpdb->prefix}tbl_users (userId) ON DELETE CASCADE");
+        ADD CONSTRAINT user_bank_headings_ibfk_2 FOREIGN KEY (user_id)");
 
     $wpdb->query("ALTER TABLE $table_user_bank_headings 
         ADD CONSTRAINT user_bank_headings_ibfk_3 FOREIGN KEY (heading_id) REFERENCES $table_api_endpoint_headings (ID) ON DELETE CASCADE");
 
     $wpdb->query("ALTER TABLE $table_user_banks 
-        ADD CONSTRAINT user_banks_ibfk_1 FOREIGN KEY (user_id) REFERENCES {$wpdb->prefix}tbl_users (userId) ON DELETE CASCADE ON UPDATE CASCADE");
+        ADD CONSTRAINT user_banks_ibfk_1 FOREIGN KEY (user_id)");
 }
 
 
@@ -188,14 +188,17 @@ register_activation_hook(__FILE__, 'everxp_migrate_api_user_logs');
 
 register_activation_hook(__FILE__, function() {
     ob_start(); // Start output buffering
+
     everxp_create_custom_tables();
     everxp_add_foreign_keys();
-    $unexpected_output = ob_get_clean(); // Get any unexpected output
+
+    $unexpected_output = ob_get_clean(); // Capture unexpected output
 
     if (!empty($unexpected_output)) {
         error_log('Unexpected output during activation: ' . $unexpected_output);
     }
 });
+
 
 
 // Schedule the cron event
@@ -216,7 +219,7 @@ function everxp_clear_cron_job() {
 if (!function_exists('everxp_check_domain')) {
     final class EverXP_Domain_Check {
         public static function get_domain() {
-            $headers = getallheaders();
+            $headers = function_exists('getallheaders') ? getallheaders() : [];
 
             // Fetch the domain from the headers or fallback to HTTP_HOST
             $domain = isset($headers['Origin']) ? $headers['Origin'] : $_SERVER['HTTP_HOST'];
