@@ -1,11 +1,10 @@
-=== EverXP Wordpress Plugin ===
-Contributors: 
-Donate link: 
+=== EverXP ===
+Contributors: 1178Team
 Tags: gamification,analytics,quotes,micro-copies,langauge,language
 Requires at least: 5.5
-Tested up to: 6.5
+Tested up to: 6.7
 Requires PHP: 5.6
-Stable tag: 6.5.5
+Stable tag: 6.7
 License: GNU General Public License v2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
