@@ -161,23 +161,28 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     // ✅ Track WooCommerce Purchase (Only if EverXP Attributed)
-    jQuery(document).on("checkout_order_received", function (event, orderId) {
-        let storedUTMs = getEverXPUTMs();
-        if (!storedUTMs) return;
+    document.addEventListener("DOMContentLoaded", function () {
+        if (window.location.href.includes("order-received")) {
+            let storedUTMs = getEverXPUTMs();
+            if (!storedUTMs) return;
 
-        console.log("🚀 EverXP Purchase Completed:", orderId);
+            const orderId = new URLSearchParams(window.location.search).get("order-received") || "unknown";
 
-        let eventData = {
-            cache_buster: new Date().getTime(),
-            eventType: "purchase",
-            eventData: {
-                order_id: orderId || "unknown",
-                utm_parameters: storedUTMs
-            }
-        };
+            console.log("🚀 EverXP Purchase Completed:", orderId);
 
-        sendEvent(eventData);
+            let eventData = {
+                cache_buster: new Date().getTime(),
+                eventType: "purchase",
+                eventData: {
+                    order_id: orderId,
+                    utm_parameters: storedUTMs
+                }
+            };
+
+            sendEvent(eventData);
+        }
     });
+
 
     // ✅ Track WordPress User Registration (Only if EverXP Attributed)
     document.body.addEventListener("submit", function (event) {
