@@ -165,15 +165,17 @@ document.addEventListener("DOMContentLoaded", function () {
         let storedUTMs = getEverXPUTMs();
         if (!storedUTMs) return;
 
-        const orderId = new URLSearchParams(window.location.search).get("order-received") || "unknown";
+        const orderId = new URLSearchParams(window.location.search).get("id") || "unknown";
+        const totalAmount = document.querySelector(".order-total .woocommerce-Price-amount")?.innerText || "unknown";
 
-        console.log("🚀 EverXP Purchase Completed:", orderId);
+        console.log("🚀 EverXP Purchase Completed:", orderId, totalAmount);
 
         let eventData = {
             cache_buster: new Date().getTime(),
             eventType: "purchase",
             eventData: {
                 order_id: orderId,
+                total_price: totalAmount,
                 utm_parameters: storedUTMs
             }
         };
