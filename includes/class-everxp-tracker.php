@@ -56,11 +56,12 @@ class EverXP_Tracker {
         $decrypted_api_key = EverXP_Encryption_Helper::decrypt($encrypted_api_key);
 
 
+        //https://api.everxp.com/logs/track_event
         wp_localize_script('everxp-event-tracking', 'everxpTracker', [
             'ajax_url' => 'https://api.everxp.com/logs/track_event',
             'auth_token' => $decrypted_api_key,
-            'user_identifier' => self::everxp_get_user_identifier()
-
+            'user_identifier' => self::everxp_get_user_identifier(),
+            'user_data' => self::get_geo_data_for_user(self::everxp_get_user_identifier())
         ]);
     }
 
@@ -110,6 +111,43 @@ class EverXP_Tracker {
 
     private function extract_utm_value($utm_parameters, $key) {
         return isset($utm_parameters[$key]) ? preg_replace('/^everxp_/', '', $utm_parameters[$key]) : null;
+    }
+
+    /**
+     * Get or cache geo info for a user based on IP
+     */
+    private function get_geo_data_for_user($user_identifier) {
+        $transient_key = 'everxp_geo_' . md5($user_identifier);
+        $cached = get_transient($transient_key);
+
+        $current_ip = $_SERVER['REMOTE_ADDR'] ?? null;
+        if (!$current_ip) return null;
+
+        $needs_refresh = true;
+
+        if (is_array($cached) && isset($cached['ip'])) {
+            // Only refresh if IP changed
+            if ($cached['ip'] === $current_ip) {
+                $needs_refresh = false;
+            }
+        }
+
+        if ($needs_refresh) {
+            $response = wp_remote_get("https://ipapi.co/{$current_ip}/json/");
+            if (is_wp_error($response)) return $cached ?: null;
+
+            $body = wp_remote_retrieve_body($response);
+            $geo = json_decode($body, true);
+
+            if (!isset($geo['country_name'])) return json_encode($cached) ?: null;
+
+            $geo['ip'] = $current_ip; // Store current IP with geo
+            // Cache with refreshed IP
+            set_transient($transient_key, $geo, DAY_IN_SECONDS);
+            return json_encode($geo);
+        }
+
+        return json_encode($cached);
     }
 
 

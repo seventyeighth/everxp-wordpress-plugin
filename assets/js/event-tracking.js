@@ -1,38 +1,134 @@
 document.addEventListener("DOMContentLoaded", function () {
-    console.log("EverXP Event Tracking Loaded");
 
-    // ✅ Function to Track Pageviews for EverXP Text Blocks
+    // ✅ Init session start timestamp + session ID
+    if (!sessionStorage.getItem("everxp_session_start")) {
+        sessionStorage.setItem("everxp_session_start", Date.now());
+    }
+
+    if (!sessionStorage.getItem("everxp_session_id")) {
+        const sid = Math.random().toString(36).substr(2) + Date.now();
+        sessionStorage.setItem("everxp_session_id", sid);
+    }
+
+    function getTimeOnSite() {
+        const start = parseInt(sessionStorage.getItem("everxp_session_start"), 10);
+        return start ? Math.floor((Date.now() - start) / 1000) : 0;
+    }
+
+    function getSessionId() {
+        return sessionStorage.getItem("everxp_session_id") || "unknown";
+    }
+
+    function getClientMetadata() {
+        return {
+            current_page: window.location.pathname,
+            page_title: document.title,
+            referrer_url: document.referrer || "direct",
+            time_on_site: getTimeOnSite(),
+            language: navigator.language || "unknown",
+            screen_resolution: `${window.screen.width}x${window.screen.height}`,
+            device_type: /Mobile|Android|iP/.test(navigator.userAgent) ? "mobile" : "desktop",
+            session_id: getSessionId()
+        };
+    }
+
     function trackPageView() {
-        document.querySelectorAll(".everxp-text-output, .everxp-multi-text-output").forEach(element => {
-            let folderId = element.getAttribute("data-folder-id");
-            let headingId = element.getAttribute("data-heading-id") || null;
+        const utms = getEverXPUTMs();
+        const banners = document.querySelectorAll(".everxp-text-output, .everxp-multi-text-output");
+        let tracked = false;
 
-            if (!folderId) return; // Skip if no folder ID
+        banners.forEach(element => {
+            const folderId = element.getAttribute("data-folder-id");
+            const headingId = element.getAttribute("data-heading-id") || null;
+            if (!folderId) return;
 
-            // console.log(`🚀 Tracking EverXP Page View: Folder ID = ${folderId}, Heading ID = ${headingId}`);
+            tracked = true;
 
-            let eventData = {
-                cache_buster: new Date().getTime(),
+            const eventData = {
+                cache_buster: Date.now(),
                 eventType: "pageview",
                 eventData: {
-                    referrer_url: document.referrer || "direct",
+                    ...getClientMetadata(),
                     utm_parameters: {
-                        utm_source: 'everxp',
+                        utm_source: "everxp",
                         utm_medium: document.referrer || "direct",
                         utm_campaign: folderId,
                         utm_term: headingId
                     }
                 }
             };
-
             sendEvent(eventData);
+
+            // Store banner view flag with page info
+            sessionStorage.setItem("everxp_banner_viewed", JSON.stringify({
+                folderId,
+                headingId,
+                lastUrl: window.location.pathname
+            }));
         });
+
+        // Fallback: if no banners and no session banner, fire session_pageview
+        let sessionTracked = false;
+        if (!tracked && utms?.utm_campaign && utms?.utm_term) {
+            const eventData = {
+                cache_buster: Date.now(),
+                eventType: "session_pageview",
+                eventData: {
+                    ...getClientMetadata(),
+                    utm_parameters: {
+                        utm_source: "everxp",
+                        utm_medium: document.referrer || "direct",
+                        utm_campaign: utms.utm_campaign,
+                        utm_term: utms.utm_term
+                    }
+                }
+            };
+            sendEvent(eventData);
+            sessionTracked = true;
+        }
+
+        // Follow-up if previously viewed banner but now no banners
+        const stored = sessionStorage.getItem("everxp_banner_viewed");
+        const noBanners = banners.length === 0;
+
+        if (!tracked && !sessionTracked && stored && noBanners) {
+            const { folderId, headingId, lastUrl } = JSON.parse(stored);
+
+            if (window.location.pathname !== lastUrl) {
+                const followupEvent = {
+                    cache_buster: Date.now(),
+                    eventType: "followup_pageview",
+                    eventData: {
+                        ...getClientMetadata(),
+                        utm_parameters: {
+                            utm_source: "everxp",
+                            utm_medium: document.referrer || "direct",
+                            utm_campaign: folderId,
+                            utm_term: headingId
+                        }
+                    }
+                };
+                sendEvent(followupEvent);
+
+                // Update lastUrl to current path
+                sessionStorage.setItem("everxp_banner_viewed", JSON.stringify({
+                    folderId,
+                    headingId,
+                    lastUrl: window.location.pathname
+                }));
+            }
+        }
+
+        if (utms) {
+            document.cookie = "everxp_attributed=true; path=/; max-age=1800";
+        }
     }
 
     // ✅ Execute Pageview Tracking on Load
     trackPageView();
 
-    // ✅ Store EverXP UTM Parameters in a Cookie (for non-link events)
+
+
     function storeUTMs() {
         let urlParams = new URLSearchParams(window.location.search);
         let utmData = {};
@@ -44,10 +140,16 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         if (utmData.utm_source === "everxp") {
-            document.cookie = "everxp_utms=" + JSON.stringify(utmData) + "; path=/; max-age=" + (60 * 60 * 24 * 30); // Store for 30 days
+            // Store full UTM params in a cookie (30 days)
+            document.cookie = "everxp_utms=" + JSON.stringify(utmData) + "; path=/; max-age=" + (60 * 60 * 24 * 30);
+
+            // Set session attribution cookie (valid for 30 minutes)
+            document.cookie = "everxp_attributed=true; path=/; max-age=1800";
+
             console.log("✅ EverXP UTM Stored:", utmData);
         }
     }
+
 
     storeUTMs();
 
@@ -65,6 +167,9 @@ document.addEventListener("DOMContentLoaded", function () {
         if (target && target.href && parentHeading) {            
             event.preventDefault();
             console.log("🚀 EverXP Link Click Detected:", target.href);
+
+            // On banner click
+            document.cookie = "everxp_attributed=true; path=/; max-age=1800";
 
             let eventData = {
                 cache_buster: new Date().getTime(),
@@ -251,7 +356,8 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             body: JSON.stringify({
                 ...eventData, // Spread existing event data
-                user_identifier: everxpTracker.user_identifier // New parameter added
+                user_data: everxpTracker.user_data,
+                user_identifier: everxpTracker.user_identifier
             }),
         })
         .then(response => response.json())
