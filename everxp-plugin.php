@@ -2,7 +2,7 @@
 /*
 Plugin Name: EverXP
 Description: Provides API integration with shortcodes, Elementor widgets, and database sync.
-Version: 2.5
+Version: 2.6
 Author: Accessily LTD
 License: GNU General Public License v2 or later
 */
