@@ -362,7 +362,7 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(response => response.json())
         .then(data => {
-            console.log("✅ EverXP Event Sent Successfully", data);
+            console.log("✅ EverXP Event Sent Successfully", everxpTracker.user_data);
             if (callback) callback();
         })
         .catch(error => console.error("❌ Event Tracking Error:", error));
