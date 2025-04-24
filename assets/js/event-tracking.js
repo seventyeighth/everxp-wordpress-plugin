@@ -175,6 +175,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 cache_buster: new Date().getTime(),
                 eventType: "link_click",
                 eventData: {
+                    ...getClientMetadata(),
                     url: target.href,
                     heading_text: parentHeading ? parentHeading.innerText : "",
                     utm_parameters: extractUTMs(target.href),
@@ -199,6 +200,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 cache_buster: new Date().getTime(),
                 eventType: "checkout_initiated",
                 eventData: {
+                    ...getClientMetadata(),
                     utm_parameters: storedUTMs
                 }
             };
@@ -216,6 +218,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 cache_buster: new Date().getTime(),
                 eventType: "checkout_initiated",
                 eventData: {
+                    ...getClientMetadata(),
                     utm_parameters: storedUTMs
                 }
             };
@@ -252,6 +255,7 @@ document.addEventListener("DOMContentLoaded", function () {
             cache_buster: new Date().getTime(),
             eventType: "add_to_cart",
             eventData: {
+                ...getClientMetadata(),
                 product_id: productId,
                 product_name: productName,
                 price: price || "unknown",
@@ -270,8 +274,12 @@ document.addEventListener("DOMContentLoaded", function () {
         let storedUTMs = getEverXPUTMs();
         if (!storedUTMs) return;
 
-        const orderId = new URLSearchParams(window.location.search).get("id") || "unknown";
-        const totalAmount = document.querySelector(".order-total .woocommerce-Price-amount")?.innerText || "unknown";
+        // ✅ Extract order ID from URL path
+        const match = window.location.pathname.match(/order-received\/(\d+)/);
+        const orderId = match ? match[1] : "unknown";
+
+        // ✅ Try to extract total amount from DOM, fallback to unknown
+        const totalAmount = document.querySelector(".order-total .woocommerce-Price-amount")?.textContent?.trim() || "unknown";
 
         console.log("🚀 EverXP Purchase Completed:", orderId, totalAmount);
 
@@ -279,6 +287,7 @@ document.addEventListener("DOMContentLoaded", function () {
             cache_buster: new Date().getTime(),
             eventType: "purchase",
             eventData: {
+                ...getClientMetadata(),
                 order_id: orderId,
                 total_price: totalAmount,
                 utm_parameters: storedUTMs
@@ -287,6 +296,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         sendEvent(eventData);
     }
+
 
 
     // ✅ Track WordPress User Registration (Only if EverXP Attributed)
@@ -301,6 +311,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 cache_buster: new Date().getTime(),
                 eventType: "user_registration",
                 eventData: {
+                    ...getClientMetadata(),
                     utm_parameters: storedUTMs
                 }
             };
@@ -322,6 +333,7 @@ document.addEventListener("DOMContentLoaded", function () {
             cache_buster: new Date().getTime(),
             eventType: "form_submission",
             eventData: {
+                ...getClientMetadata(),
                 form_id: formId,
                 utm_parameters: storedUTMs
             }
