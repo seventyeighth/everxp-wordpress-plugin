@@ -279,7 +279,14 @@ document.addEventListener("DOMContentLoaded", function () {
         const orderId = match ? match[1] : "unknown";
 
         // ✅ Try to extract total amount from DOM, fallback to unknown
-        const totalAmount = document.querySelector(".order-total .woocommerce-Price-amount")?.textContent?.trim() || "unknown";
+        const tryGetTotalAmount = () => {
+            const priceEl = document.querySelector(".woocommerce-Price-amount.amount");
+            if (!priceEl) return "unknown";
+
+            return priceEl.textContent?.trim() || "unknown";
+        };
+
+        const totalAmount = tryGetTotalAmount();
 
         console.log("🚀 EverXP Purchase Completed:", orderId, totalAmount);
 
