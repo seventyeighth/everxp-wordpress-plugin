@@ -84,11 +84,12 @@ function everxp_create_custom_tables() {
         id int(11) NOT NULL AUTO_INCREMENT,
         user_id int(11) NOT NULL,
         name varchar(255) NOT NULL,
+        slug TEXT NOT NULL,
         active tinyint(1) NOT NULL DEFAULT '1' COMMENT '1 = Active, 2 = Inactive',
         created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         deleted_at date DEFAULT NULL,
-        PRIMARY KEY  (id),
+        PRIMARY KEY (id),
         KEY user_id (user_id)
     ) $charset_collate;";
 
@@ -183,6 +184,22 @@ function everxp_add_foreign_keys() {
 // Run the migration on plugin activation
 // register_activation_hook(__FILE__, 'everxp_migrate_api_user_logs');
 
+
+function everxp_migrate_add_slug_column_to_user_banks() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'user_banks';
+
+    // Check if the 'slug' column exists
+    $column_exists = $wpdb->get_results(
+        $wpdb->prepare("SHOW COLUMNS FROM $table_name LIKE %s", 'slug')
+    );
+
+    if (empty($column_exists)) {
+        $wpdb->query("ALTER TABLE $table_name ADD slug TEXT NOT NULL AFTER name");
+    }
+}
+
+register_activation_hook(__FILE__, 'everxp_migrate_add_slug_column_to_user_banks');
 
 
 

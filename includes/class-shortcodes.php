@@ -27,9 +27,31 @@ class EverXP_Shortcodes {
             'max_l'     => 9999999
         ], $atts);
 
+
         if (empty($atts['folder_id'])) {
-            return '<p>Error: folder_id is required.</p>';
+            $current_path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+            $path_parts = explode('/', $current_path);
+            $slug = end($path_parts);
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'user_banks';
+
+            // Get all matching rows (in case multiple banks share the same slug)
+            $rows = $wpdb->get_results(
+                $wpdb->prepare("SELECT id FROM $table_name WHERE FIND_IN_SET(%s, slug)", $slug),
+                ARRAY_A
+            );
+
+            if (empty($rows)) {
+                return '<p>Error: no matching folder for current URL.</p>';
+            }
+
+            // Pick one at random
+            $random_row = $rows[array_rand($rows)];
+            $atts['folder_id'] = (int) $random_row['id'];
         }
+
+
 
         // Require the request class
         require_once plugin_dir_path(__FILE__) . 'class-everxp-request.php';

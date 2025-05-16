@@ -139,7 +139,7 @@ class EverXP_Tracker {
             $body = wp_remote_retrieve_body($response);
             $geo = json_decode($body, true);
 
-            if (!isset($geo['country_name'])) return $cached ?: null;
+            if (!isset($geo['ip'])) return $cached ?: null;
 
             $geo['ip'] = $current_ip; // Store current IP with geo
             // Cache with refreshed IP

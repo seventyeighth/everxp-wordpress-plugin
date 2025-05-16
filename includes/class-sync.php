@@ -236,14 +236,15 @@ class EverXP_Sync {
                     [
                         'id'         => $row['id'], 
                         'user_id'    => $row['user_id'],
-                        'name'       => $row['name'], 
+                        'name'       => $row['name'],
+                        'slug'       => $row['slug'],
                         'active'     => $row['active'],
                         'created_at' => $row['created_at'],
                         'updated_at' => $row['updated_at'],
                         'deleted_at' => $row['deleted_at'],
                     ],
                     [
-                        '%d', '%d', '%s', '%d', '%s', '%s', '%s'
+                        '%d', '%d', '%s', '%s', '%d', '%s', '%s', '%s'
                     ]
                 );
             }
