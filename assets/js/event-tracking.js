@@ -270,39 +270,39 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     // ✅ Track WooCommerce Purchase (Only if EverXP Attributed)
-    if (window.location.href.includes("order-received")) {
-        let storedUTMs = getEverXPUTMs();
-        if (!storedUTMs) return;
+    // if (window.location.href.includes("order-received")) {
+    //     let storedUTMs = getEverXPUTMs();
+    //     if (!storedUTMs) return;
 
-        // ✅ Extract order ID from URL path
-        const match = window.location.pathname.match(/order-received\/(\d+)/);
-        const orderId = match ? match[1] : "unknown";
+    //     // ✅ Extract order ID from URL path
+    //     const match = window.location.pathname.match(/order-received\/(\d+)/);
+    //     const orderId = match ? match[1] : "unknown";
 
-        // ✅ Try to extract total amount from DOM, fallback to unknown
-        const tryGetTotalAmount = () => {
-            const priceEl = document.querySelector(".woocommerce-Price-amount.amount");
-            if (!priceEl) return "unknown";
+    //     // ✅ Try to extract total amount from DOM, fallback to unknown
+    //     const tryGetTotalAmount = () => {
+    //         const priceEl = document.querySelector(".woocommerce-Price-amount.amount");
+    //         if (!priceEl) return "unknown";
 
-            return priceEl.textContent?.trim() || "unknown";
-        };
+    //         return priceEl.textContent?.trim() || "unknown";
+    //     };
 
-        const totalAmount = tryGetTotalAmount();
+    //     const totalAmount = tryGetTotalAmount();
 
-        console.log("🚀 EverXP Purchase Completed:", orderId, totalAmount);
+    //     console.log("🚀 EverXP Purchase Completed:", orderId, totalAmount);
 
-        let eventData = {
-            cache_buster: new Date().getTime(),
-            eventType: "purchase",
-            eventData: {
-                ...getClientMetadata(),
-                order_id: orderId,
-                total_price: totalAmount,
-                utm_parameters: storedUTMs
-            }
-        };
+    //     let eventData = {
+    //         cache_buster: new Date().getTime(),
+    //         eventType: "purchase",
+    //         eventData: {
+    //             ...getClientMetadata(),
+    //             order_id: orderId,
+    //             total_price: totalAmount,
+    //             utm_parameters: storedUTMs
+    //         }
+    //     };
 
-        sendEvent(eventData);
-    }
+    //     sendEvent(eventData);
+    // }
 
 
 

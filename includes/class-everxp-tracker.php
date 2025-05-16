@@ -7,6 +7,8 @@ class EverXP_Tracker {
     private static $instance;
     private $wpdb;
 
+    const API_BASE_URL = 'https://api.everxp.com';
+
     public function __construct() {
         global $wpdb;
         $this->wpdb = $wpdb;
@@ -17,7 +19,7 @@ class EverXP_Tracker {
         // add_action('woocommerce_add_to_cart', [$this, 'track_add_to_cart'], 10, 6);
 
         // ✅ Track WooCommerce Purchase
-        // add_action('woocommerce_thankyou', [$this, 'track_purchase']);
+        add_action('woocommerce_thankyou', ['EverXP_Tracker', 'track_successful_purchase'], 10, 1);
 
         // ✅ Track Checkout Initiated
         // add_action('woocommerce_before_checkout_form', [$this, 'track_checkout_initiated']);
@@ -54,11 +56,11 @@ class EverXP_Tracker {
         // Get and decrypt the API key from WordPress options
         $encrypted_api_key = get_option('everxp_api_key');
         $decrypted_api_key = EverXP_Encryption_Helper::decrypt($encrypted_api_key);
-
+        $api_url           = self::API_BASE_URL . '/logs/track_event';
 
         //https://api.everxp.com/logs/track_event
         wp_localize_script('everxp-event-tracking', 'everxpTracker', [
-            'ajax_url' => 'https://api.everxp.com/logs/track_event',
+            'ajax_url' => $api_url,
             'auth_token' => $decrypted_api_key,
             'user_identifier' => self::everxp_get_user_identifier(),
             'user_data' => self::get_geo_data_for_user(self::everxp_get_user_identifier())
@@ -68,7 +70,7 @@ class EverXP_Tracker {
     /**
      * Get EverXP UTM Parameters from Cookie
      */
-    private function get_everxp_utms() {
+    private static function get_everxp_utms() {
         if (isset($_COOKIE['everxp_utms'])) {
             return json_decode(stripslashes($_COOKIE['everxp_utms']), true);
         }
@@ -92,7 +94,7 @@ class EverXP_Tracker {
     /**
      * Check if an event has EverXP UTM attribution
      */
-    private function is_everxp_attributed($utm_parameters) {
+    private static function is_everxp_attributed($utm_parameters) {
         if (!is_array($utm_parameters)) {
             return false;
         }
@@ -242,34 +244,50 @@ class EverXP_Tracker {
     /**
      * Track WooCommerce Purchase
      */
-    // public function track_purchase($order_id) {
-    //     global $wpdb;
-    //     $order = wc_get_order($order_id);
-    //     $utm_parameters = $this->get_everxp_utms();
-    //     $user_identifier = self::everxp_get_user_identifier();
+    public static function track_successful_purchase($order_id) {
+        if (!$order_id) return;
 
-    //     if (!$this->is_everxp_attributed($utm_parameters)) {
-    //         return;
-    //     }
+        $order = wc_get_order($order_id);
+        if (!$order || $order->get_status() === 'failed') return;
 
-    //     // Extract user_id, endpoint_id, and data_id from UTMs
-    //     $endpoint_id = $this->extract_utm_value($utm_parameters, 'utm_campaign');
-    //     $data_id = $this->extract_utm_value($utm_parameters, 'utm_term');
+        $utm_parameters = self::get_everxp_utms();
+        $user_identifier = self::everxp_get_user_identifier();
 
-    //     $wpdb->insert("{$wpdb->prefix}api_user_logs", [
-    //         'user_id'         => get_current_user_id() ?: NULL,
-    //         'endpoint_id'     => $endpoint_id,
-    //         'data_id'         => $data_id,
-    //         'event_type'      => 'purchase',
-    //         'event_data'      => json_encode([
-    //             'order_id'    => $order_id,
-    //             'total_price' => $order->get_total()
-    //         ]),
-    //         'utm_parameters'  => json_encode($utm_parameters),
-    //         'timestamp'       => time(),
-    //         'user_identifier' => $user_identifier
-    //     ]);
-    // }
+        if (!self::is_everxp_attributed($utm_parameters)) {
+            return;
+        }
+
+        if (empty($utm_parameters)) return;
+
+        // Build event payload
+        $event_data = [
+            'eventType'   => 'purchase',
+            'eventData'   => [
+                'order_id'       => $order_id,
+                'order_key'      => $order->get_order_key(),
+                'total_price'    => $order->get_total(),
+                'currency'       => $order->get_currency(),
+                'utm_parameters' => $utm_parameters,
+            ],
+            'user_data' => NULL,
+            'user_identifier' => $user_identifier,
+        ];
+
+        // Send to EverXP API (use wp_remote_post)
+        $api_url = self::API_BASE_URL . '/logs/track_event';
+        $api_key = EverXP_Encryption_Helper::decrypt(get_option('everxp_api_key'));
+
+        wp_remote_post($api_url, [
+            'headers' => [
+                'Content-Type'  => 'application/json',
+                'Authorization' => 'Bearer ' . $api_key
+            ],
+            'body'    => json_encode($event_data),
+            'timeout' => 10
+        ]);
+
+    }
+
 
     /**
      * Track WordPress User Registration
