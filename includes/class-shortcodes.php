@@ -36,14 +36,17 @@ class EverXP_Shortcodes {
             global $wpdb;
             $table_name = $wpdb->prefix . 'user_banks';
 
-            // Match rows that contain slug or include 'all_pages'
+            $like_slug     = '%' . $wpdb->esc_like($slug) . '%';
+            $like_allpages = '%all_pages%';
+
             $rows = $wpdb->get_results(
                 $wpdb->prepare("
                     SELECT id FROM $table_name 
-                    WHERE slug LIKE %s OR slug LIKE '%%all_pages%%'
-                ", '%' . $wpdb->esc_like($slug) . '%'),
+                    WHERE slug LIKE %s OR slug LIKE %s
+                ", $like_slug, $like_allpages),
                 ARRAY_A
             );
+
 
             if (empty($rows)) {
                 return '<p>Error: no matching folder for current URL.</p>';
