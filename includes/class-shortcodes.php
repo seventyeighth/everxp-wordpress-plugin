@@ -29,16 +29,19 @@ class EverXP_Shortcodes {
 
 
         if (empty($atts['folder_id'])) {
-            $current_path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+            $current_path = rawurldecode(trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/'));
             $path_parts = explode('/', $current_path);
             $slug = end($path_parts);
 
             global $wpdb;
             $table_name = $wpdb->prefix . 'user_banks';
 
-            // Get all matching rows (in case multiple banks share the same slug)
+            // Match rows that contain slug or include 'all_pages'
             $rows = $wpdb->get_results(
-                $wpdb->prepare("SELECT id FROM $table_name WHERE FIND_IN_SET(%s, slug)", $slug),
+                $wpdb->prepare("
+                    SELECT id FROM $table_name 
+                    WHERE slug LIKE %s OR slug LIKE '%%all_pages%%'
+                ", '%' . $wpdb->esc_like($slug) . '%'),
                 ARRAY_A
             );
 
