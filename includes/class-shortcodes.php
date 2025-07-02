@@ -27,35 +27,56 @@ class EverXP_Shortcodes {
             'max_l'     => 9999999
         ], $atts);
 
-
         if (empty($atts['folder_id'])) {
-            $current_path = rawurldecode(trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/'));
-            $path_parts = explode('/', $current_path);
-            $slug = end($path_parts);
+
+            // Uncomment this for live use
+            $current_path = rawurldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
+            
+            // Uncomment this for testing
+            // $test_url = 'https://test.url.com';
+            // $current_path = rawurldecode(parse_url($test_url, PHP_URL_PATH));
+
+            $current_path = '/' . trim($current_path, '/') . '/';
 
             global $wpdb;
             $table_name = $wpdb->prefix . 'user_banks';
 
-            $slug = trim($slug, '/');
-            $like_slug = '%/' . $wpdb->esc_like($slug) . '/%';
-            $like_allpages = 'all_pages';
+            // Fetch all possible slugs
+            $rows = $wpdb->get_results("SELECT id, slug FROM $table_name", ARRAY_A);
 
-            $rows = $wpdb->get_results(
-                $wpdb->prepare("
-                    SELECT id FROM $table_name 
-                    WHERE slug LIKE %s OR slug LIKE %s
-                ", $like_slug, $like_allpages),
-                ARRAY_A
-            );
+            $matched_ids = [];
 
-            if (empty($rows)) {
+            foreach ($rows as $row) {
+                $db_slug = trim($row['slug'], '/');
+
+                if (empty($db_slug)) {
+                    continue; // skip empty slugs
+                }
+
+                if ($db_slug === 'all_pages') {
+                    $matched_ids[] = $row['id'];
+                    continue;
+                }
+
+                // Match if the slug exists as a full folder ending
+                if (
+                    str_ends_with($current_path, '/' . $db_slug . '/') ||        // /slug/
+                    str_ends_with($current_path, '/' . $db_slug) ||              // /slug
+                    $current_path === '/' . $db_slug . '/'                       // full match
+                ) {
+                    $matched_ids[] = $row['id'];
+                }
+
+            }
+            var_dump($matched_ids);die;
+            if (empty($matched_ids)) {
                 return '<p>Error: no matching folder for current URL.</p>';
             }
 
-            // Pick one at random
-            $random_row = $rows[array_rand($rows)];
-            $atts['folder_id'] = (int) $random_row['id'];
+            // Pick one matched folder ID at random
+            $atts['folder_id'] = (int) $matched_ids[array_rand($matched_ids)];
         }
+
 
 
 
