@@ -68,7 +68,7 @@ class EverXP_Shortcodes {
                 }
 
             }
-            var_dump($matched_ids);die;
+
             if (empty($matched_ids)) {
                 return '<p>Error: no matching folder for current URL.</p>';
             }
