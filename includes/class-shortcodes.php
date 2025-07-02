@@ -36,8 +36,9 @@ class EverXP_Shortcodes {
             global $wpdb;
             $table_name = $wpdb->prefix . 'user_banks';
 
-            $like_slug     = '%' . $wpdb->esc_like($slug) . '%';
-            $like_allpages = '%all_pages%';
+            $slug = trim($slug, '/');
+            $like_slug = '%/' . $wpdb->esc_like($slug) . '/%';
+            $like_allpages = 'all_pages';
 
             $rows = $wpdb->get_results(
                 $wpdb->prepare("
@@ -46,7 +47,6 @@ class EverXP_Shortcodes {
                 ", $like_slug, $like_allpages),
                 ARRAY_A
             );
-
 
             if (empty($rows)) {
                 return '<p>Error: no matching folder for current URL.</p>';
