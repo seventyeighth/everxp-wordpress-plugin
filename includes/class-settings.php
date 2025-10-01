@@ -66,68 +66,105 @@ class EverXP_Settings {
 	public static function render_main_page() {
 	    global $wpdb;
 
-	    // Query to fetch banks and IDs from the user_banks table
 	    $banks = $wpdb->get_results("SELECT id, name FROM {$wpdb->prefix}user_banks WHERE active = 1", ARRAY_A);
 
 	    echo '<h1>EverXP Main Page</h1>';
 	    echo '<p>Welcome to the EverXP plugin dashboard.</p>';
 	    do_action('everxp_sync_logs_cron');
 
-	    // Display banks table if data is available
 	    if (!empty($banks)) {
 	        echo '<h2>User Banks</h2>';
 	        echo '<table class="everxp-banks-table" style="border-collapse: collapse; margin-bottom: 20px;">';
-	        echo '<thead>';
-	        echo '<tr>';
-	        echo '<th>Bank ID (folder_id)</th>';
-	        echo '<th>Bank Name</th>';
-	        echo '</tr>';
-	        echo '</thead>';
-	        echo '<tbody>';
+	        echo '<thead><tr><th>Bank ID (folder_id)</th><th>Bank Name</th></tr></thead><tbody>';
 	        foreach ($banks as $bank) {
-	            echo '<tr>';
-	            echo '<td>' . esc_html($bank['id']) . '</td>';
-	            echo '<td>' . esc_html($bank['name']) . '</td>';
-	            echo '</tr>';
+	            echo '<tr><td>' . esc_html($bank['id']) . '</td><td>' . esc_html($bank['name']) . '</td></tr>';
 	        }
-	        echo '</tbody>';
-	        echo '</table>';
+	        echo '</tbody></table>';
 	    } else {
 	        echo '<p>No active banks found.</p>';
 	    }
 
-	    // Quick Links Section
+	    // Embeds Manager (includes upgraded "Where should it appear?")
+	    if (class_exists('EverXP_Embeds')) {
+	        EverXP_Embeds::render_admin_block();
+	    } else {
+	        echo '<div class="error"><p>Embeds module not loaded.</p></div>';
+	    }
+
+	    // Quick Links (existing)
 	    echo "<h2>Quick Links</h2>";
-	    echo '<div class="everxp-quick-links">';
-	    echo '<ul>';
+	    echo '<div class="everxp-quick-links"><ul>';
 	    echo '<li><a href="https://dashboard.everxp.com/bank/#!/" target="_blank">Update Banks</a></li>';
 	    echo '<li><a href="https://dashboard.everxp.com/bank/#!/" target="_blank">Update Headings</a></li>';
 	    echo '<li><a href="https://dashboard.everxp.com/settings" target="_blank">Settings</a></li>';
 	    echo '<li><a href="https://dashboard.everxp.com/billing" target="_blank">Upgrade Your Account</a></li>';
 	    echo '<li><a href="https://everxp.docs.apiary.io/#" target="_blank">API Documentation</a></li>';
-	    echo '</ul>';
-
-	    echo '<h3>Additional Links</h3>';
-	    echo '<ul>';
+	    echo '</ul><h3>Additional Links</h3><ul>';
 	    echo '<li><a href="https://accessily.com" target="_blank">Guest Post Marketplace</a></li>';
-	    echo '</ul>';
-	    echo '</div>';
+	    echo '</ul></div>';
 
-	    // Inline CSS for Styling
+	    // Inline CSS
 	    echo '<style>
-	        .everxp-style-options-table, .everxp-banks-table {
-	            width: 80%;
-	            margin: 20px 0;
-	            border-collapse: collapse;
-	        }
+	        .everxp-style-options-table, .everxp-banks-table { width: 100%; margin: 20px 0; border-collapse: collapse; }
 	        .everxp-style-options-table th, .everxp-banks-table th,
-	        .everxp-style-options-table td, .everxp-banks-table td {
+	        .everxp-style-options-table td, .everxp-banks-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+	        .everxp-style-options-table tr:nth-child(even), .everxp-banks-table tr:nth-child(even) { background-color: #f9f9f9; }
+	        pre { background-color: #f4f4f4; padding: 10px; border: 1px solid #ddd; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+	        .form-table th { width: 260px; }
+	        #everxp-custom-hook-wrap label, #everxp-priority-wrap label { display:inline-block; min-width:90px; }
+	    </style>';
+	}
+
+	public static function render_docs_page() {
+	    echo '<div class="wrap">';
+	    echo '<h1>EverXP Documentation</h1>';
+	    echo '<p>Welcome to the EverXP Documentation! Below, you will find instructions on how to implement EverXP shortcodes on your WordPress site.</p>';
+
+	    // Shortcode Examples
+	    echo '<h2>1. Single Text Shortcode</h2>';
+	    echo '<p>To display a single dynamic text, use:</p>';
+	    echo '<pre>[everxp_shortcode folder_id="6" lang="en" style="1" min_l="50" max_l="200"]</pre>';
+
+	    // Multiple Content Display Options
+	    echo '<h2>2. Multiple Text Shortcode</h2>';
+	    echo '<p>To display multiple dynamic texts, use:</p>';
+	    echo '<pre>[everxp_shortcode_multiple folder_id="6" limit="5" separator=" | "]</pre>';
+
+	    // Shortcode Options Table
+	    echo '<h2>Shortcode Options</h2>';
+	    echo '<p>Customize your content with the following attributes:</p>';
+
+	    echo '<table class="everxp-style-options-table">';
+	    echo '<thead><tr><th>Option</th><th>Attribute</th><th>Description</th><th>Example</th></tr></thead>';
+	    echo '<tbody>';
+
+	    // Basic Options
+	    echo '<tr><td>Folder ID</td><td>folder_id</td><td><strong>Required:</strong> Defines the content folder.</td><td>[everxp_shortcode folder_id="6"]</td></tr>';
+	    echo '<tr><td>Language</td><td>lang</td><td>Sets the content language.</td><td>[everxp_shortcode lang="en"]</td></tr>';
+	    echo '<tr><td>Style</td><td>style</td><td>Defines the content style.</td><td>[everxp_shortcode style="1"]</td></tr>';
+	    echo '<tr><td>Min Length</td><td>min_l</td><td>Sets the minimum text length.</td><td>[everxp_shortcode min_l="50"]</td></tr>';
+	    echo '<tr><td>Max Length</td><td>max_l</td><td>Sets the maximum text length.</td><td>[everxp_shortcode max_l="500"]</td></tr>';
+	    
+	    // Multiple Shortcode-Specific Options
+	    echo '<tr><td>Limit</td><td>limit</td><td>Defines the number of texts to display.</td><td>[everxp_shortcode_multiple limit="5"]</td></tr>';
+	    echo '<tr><td>Separator</td><td>separator</td><td>Sets a separator for multiple texts.</td><td>[everxp_shortcode_multiple separator=" | "]</td></tr>';
+
+	    echo '</tbody></table>';
+
+	    // Inline CSS for Styling (Minimal)
+	    echo '<style>
+	        .everxp-style-options-table {
+	            width: 90%;
+	            margin: 20px auto;
+	            border-collapse: collapse;
+	            font-size: 14px;
+	        }
+	        .everxp-style-options-table th, .everxp-style-options-table td {
 	            border: 1px solid #ddd;
 	            padding: 8px;
 	            text-align: left;
 	        }
-	        .everxp-style-options-table tr:nth-child(even),
-	        .everxp-banks-table tr:nth-child(even) {
+	        .everxp-style-options-table tr:nth-child(even) {
 	            background-color: #f9f9f9;
 	        }
 	        pre {
@@ -136,77 +173,12 @@ class EverXP_Settings {
 	            border: 1px solid #ddd;
 	            border-radius: 5px;
 	            overflow-x: auto;
-	            white-space: pre-wrap;
 	            word-wrap: break-word;
 	        }
 	    </style>';
 
+	    echo '</div>';
 	}
-
-public static function render_docs_page() {
-    echo '<div class="wrap">';
-    echo '<h1>EverXP Documentation</h1>';
-    echo '<p>Welcome to the EverXP Documentation! Below, you will find instructions on how to implement EverXP shortcodes on your WordPress site.</p>';
-
-    // Shortcode Examples
-    echo '<h2>1. Single Text Shortcode</h2>';
-    echo '<p>To display a single dynamic text, use:</p>';
-    echo '<pre>[everxp_shortcode folder_id="6" lang="en" style="1" min_l="50" max_l="200"]</pre>';
-
-    // Multiple Content Display Options
-    echo '<h2>2. Multiple Text Shortcode</h2>';
-    echo '<p>To display multiple dynamic texts, use:</p>';
-    echo '<pre>[everxp_shortcode_multiple folder_id="6" limit="5" separator=" | "]</pre>';
-
-    // Shortcode Options Table
-    echo '<h2>Shortcode Options</h2>';
-    echo '<p>Customize your content with the following attributes:</p>';
-
-    echo '<table class="everxp-style-options-table">';
-    echo '<thead><tr><th>Option</th><th>Attribute</th><th>Description</th><th>Example</th></tr></thead>';
-    echo '<tbody>';
-
-    // Basic Options
-    echo '<tr><td>Folder ID</td><td>folder_id</td><td><strong>Required:</strong> Defines the content folder.</td><td>[everxp_shortcode folder_id="6"]</td></tr>';
-    echo '<tr><td>Language</td><td>lang</td><td>Sets the content language.</td><td>[everxp_shortcode lang="en"]</td></tr>';
-    echo '<tr><td>Style</td><td>style</td><td>Defines the content style.</td><td>[everxp_shortcode style="1"]</td></tr>';
-    echo '<tr><td>Min Length</td><td>min_l</td><td>Sets the minimum text length.</td><td>[everxp_shortcode min_l="50"]</td></tr>';
-    echo '<tr><td>Max Length</td><td>max_l</td><td>Sets the maximum text length.</td><td>[everxp_shortcode max_l="500"]</td></tr>';
-    
-    // Multiple Shortcode-Specific Options
-    echo '<tr><td>Limit</td><td>limit</td><td>Defines the number of texts to display.</td><td>[everxp_shortcode_multiple limit="5"]</td></tr>';
-    echo '<tr><td>Separator</td><td>separator</td><td>Sets a separator for multiple texts.</td><td>[everxp_shortcode_multiple separator=" | "]</td></tr>';
-
-    echo '</tbody></table>';
-
-    // Inline CSS for Styling (Minimal)
-    echo '<style>
-        .everxp-style-options-table {
-            width: 90%;
-            margin: 20px auto;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        .everxp-style-options-table th, .everxp-style-options-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        .everxp-style-options-table tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        pre {
-            background-color: #f4f4f4;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            overflow-x: auto;
-            word-wrap: break-word;
-        }
-    </style>';
-
-    echo '</div>';
-}
 
 
 

@@ -7,7 +7,7 @@ class EverXP_Tracker {
     private static $instance;
     private $wpdb;
 
-    const API_BASE_URL = 'https://api.everxp.com';
+    const API_BASE_URL = 'http://localhost/everxp/everxp-api';
 
     public function __construct() {
         global $wpdb;

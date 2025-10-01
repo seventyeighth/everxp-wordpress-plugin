@@ -17,7 +17,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-settings.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-everxp-cron.php';
 require_once plugin_dir_path(__FILE__) . 'includes/encryption-helper.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-everxp-tracker.php';
-
+require_once plugin_dir_path(__FILE__) . 'includes/class-embeds.php';
 
 
 // Initialize features
@@ -27,6 +27,7 @@ add_action('plugins_loaded', function () {
     EverXP_Sync::init();
     EverXP_Settings::init();
     EverXP_Tracker::init();
+    EverXP_Embeds::init();
 });
 
 
@@ -209,6 +210,10 @@ register_activation_hook(__FILE__, function() {
 
     everxp_create_custom_tables();
     everxp_add_foreign_keys();
+
+    if (class_exists('EverXP_Embeds')) {
+        EverXP_Embeds::maybe_create_table();
+    }
 
     $unexpected_output = ob_get_clean(); // Capture unexpected output
 

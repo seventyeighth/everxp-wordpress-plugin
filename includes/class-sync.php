@@ -131,8 +131,8 @@ class EverXP_Sync {
         }
 
         // API endpoint for syncing data
-        //$url = 'http://localhost/everxp/everxp-api/v2/request';
-        $url = 'https://api.everxp.com/v2/request';
+        $url = 'http://localhost/everxp/everxp-api/v2/request';
+        //$url = 'https://api.everxp.com/v2/request';
 
         // Make the API request
         $response = wp_remote_get(add_query_arg([
