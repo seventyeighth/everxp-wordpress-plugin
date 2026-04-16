@@ -71,6 +71,51 @@ class EverXP_Embeds {
         $ensure_col('wrap_shop_banner',    "`wrap_shop_banner` TINYINT(1) NOT NULL DEFAULT 0 AFTER `loop_cols_override`");
     }
 
+
+    private static function ensure_frontend_handles(): void {
+        // Front-end STYLE (empty src; we attach inline CSS to this handle)
+        if (!wp_style_is('everxp-frontend-style', 'registered')) {
+            wp_register_style('everxp-frontend-style', false, [], null);
+        }
+        if (!wp_style_is('everxp-frontend-style', 'enqueued')) {
+            wp_enqueue_style('everxp-frontend-style');
+        }
+
+        // Front-end SCRIPT (container handle; strategy=defer since WP 6.3)
+        if (!wp_script_is('everxp-frontend-script', 'registered')) {
+            wp_register_script(
+                'everxp-frontend-script',
+                false,                        // no file; we attach inline runtime
+                [],                           // keep deps light; add 'jquery' if needed
+                null,
+                [ 'in_footer' => true, 'strategy' => 'defer' ] // async/defer ready
+            );
+        }
+        if (!wp_script_is('everxp-frontend-script', 'enqueued')) {
+            wp_enqueue_script('everxp-frontend-script');
+        }
+    }
+
+    private static function enqueue_frontend_css(array $embeds): void {
+        $css = '';
+        foreach ($embeds as $e) {
+            if (empty($e['active'])) { continue; }
+            if (empty($e['conditions'])) { continue; }
+            $c = json_decode((string)$e['conditions'], true);
+            if (!is_array($c)) { continue; }
+            if (!empty($c['custom_css'])) {
+                $css .= "\n/* everxp #{$e['id']} */\n" . str_replace('</style>', '', (string)$c['custom_css']) . "\n";
+            }
+        }
+        if ($css !== '') {
+            add_action('wp_enqueue_scripts', function() use ($css) {
+                EverXP_Embeds::ensure_frontend_handles();
+                wp_add_inline_style('everxp-frontend-style', $css);
+            }, 20); // after theme styles are enqueued
+        }
+    }
+
+
     /** Runtime: attach to action hooks; wrap content placements via the_content. */
     public static function register_public(): void {
         if (is_admin()) { return; }
@@ -87,6 +132,8 @@ class EverXP_Embeds {
 
             $js_payloads = [];
             $php_hooks   = [];
+
+            self::enqueue_frontend_css( self::$cached );
 
             foreach (self::$cached as $e) {
                 $placement = (string)($e['placement'] ?? '');
@@ -151,178 +198,129 @@ class EverXP_Embeds {
 
 
     private static function enqueue_js_inserter(array $embeds): void {
-        wp_register_script('everxp-shop-inserter', '', [], '1.1.0', true);
-        wp_enqueue_script('everxp-shop-inserter');
+        // Prepare data for JS
+        $payload = [];
+        foreach ($embeds as $e) {
+            $payload[] = [
+                'id'      => (int)$e['id'],
+                'html'    => (string)$e['html'],
+                'mode'    => (string)$e['mode'],
+                'every'   => (int)$e['every'],
+                'perRow'  => (int)$e['perRow'],
+                'minRows' => (int)$e['minRows'],
+                'maxRows' => (int)$e['maxRows'],
+                'css'     => isset($e['css']) ? (string)$e['css'] : '',
+            ];
+        }
+        $json = wp_json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        $data = wp_json_encode($embeds, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $inline = <<<JS
+        // Ensure our front-end containers are ready
+        add_action('wp_enqueue_scripts', function () use ($json) {
+            EverXP_Embeds::ensure_frontend_handles();
+
+            // 3.1) Inline DATA first (safe space; no <script> echoes)
+            wp_add_inline_script(
+                'everxp-frontend-script',
+                'window.EVERXP_EMBEDS = ' . $json . ';',
+                'before'
+            );
+
+            // 3.2) Inline RUNTIME (latest from your working JS inserter)
+            $runtime = <<<'JS'
     (function(){
     "use strict";
+    var EMBEDS = (window.EVERXP_EMBEDS||[]);
 
-    var EMBEDS = {$data};
-
-    // ---------- helpers ----------
     function qsa(sel, ctx){return Array.prototype.slice.call((ctx||document).querySelectorAll(sel));}
     function isEl(n){return n && n.nodeType===1;}
-
-    // Re-execute <script> tags added via innerHTML (browsers won't run them automatically).
-    function runScripts(container){
-      var scripts = qsa('script', container);
-      for (var i=0;i<scripts.length;i++){
-        var oldS = scripts[i];
-        var s = document.createElement('script');
-        // copy attributes
-        for (var j=0;j<oldS.attributes.length;j++){
-          var a = oldS.attributes[j];
-          s.setAttribute(a.name, a.value);
-        }
-        if (oldS.text && oldS.text.trim()){
-          s.text = oldS.text;
-        }
-        oldS.parentNode.replaceChild(s, oldS); // executes new <script>
-      }
+    function ensureStyle(embed){
+      if (!embed.css || !embed.css.trim()) return;
+      var id = 'everxp-css-' + String(embed.id);
+      if (document.getElementById(id)) return;
+      var s = document.createElement('style');
+      s.id = id;
+      s.appendChild(document.createTextNode(embed.css));
+      (document.head || document.documentElement).appendChild(s);
     }
-
-    // Build full-width wrapper matching list/grid semantics.
+    function runScripts(container){
+      var scripts = container.querySelectorAll('script');
+      scripts.forEach(function(oldS){
+        var s = document.createElement('script');
+        for (var i=0;i<oldS.attributes.length;i++){ var a=oldS.attributes[i]; s.setAttribute(a.name, a.value); }
+        if (oldS.text && oldS.text.trim()) s.text = oldS.text;
+        oldS.parentNode.replaceChild(s, oldS);
+      });
+    }
     function buildWrapper(grid){
       var isList = /^(UL|OL)$/i.test(grid.tagName);
       var tag = isList ? 'LI' : 'DIV';
       var el  = document.createElement(tag);
       el.className = 'everxp-banner-insert';
-
-
-      // DO NOT add Woo Blocks item classes (.wc-block-product / .wc-block-grid__product)
-      // to avoid column rules overriding our full-span.
-
-      // Classic Woo: some themes rely on .product spacing. Only add when grid is classic.
+      el.style.cssText = [
+        'grid-column:1 / -1','width:100%','flex:0 0 100%','float:none','clear:both','list-style:none',
+        (isList ? 'display:list-item' : 'display:block'),'margin:30px 0'
+      ].join(';');
       if (grid.classList.contains('products') || grid.closest('.elementor-woocommerce-products')){
         el.classList.add('product');
       }
-
       return el;
     }
-
-    // Detect product items inside a grid (covers Blocks + Classic + Elementor).
     function getItems(grid){
       var items = qsa(':scope > li.wc-block-product, :scope > li.wc-block-grid__product, :scope > li.product, :scope > li', grid)
-        .filter(function(n){
-          if (!isEl(n)) return false;
-          if (n.classList.contains('everxp-banner-insert')) return false;
-          return true;
-        });
-
-      // Heuristic fallback: prefer nodes that look like product cards
-      // (has link/image or known Woo classes), but keep order stable.
-      items = items.filter(function(n){
-        return n.querySelector('.woocommerce-LoopProduct-link, .wc-block-components-product-image, .wp-block-woocommerce-product-image, img, a')
-               || n.classList.contains('wc-block-product')
-               || n.classList.contains('wc-block-grid__product')
-               || n.classList.contains('product')
-               || true; // keep as last resort to preserve positions
-      });
-
+        .filter(function(n){ return isEl(n) && !n.classList.contains('everxp-banner-insert'); });
       return items;
     }
-
-    // Fixed positions: after every N items.
-    function fixedPositions(count, every){
-      var out=[]; if (every<1) return out;
-      for (var i=every;i<=count;i+=every){ out.push(i); }
-      return out;
-    }
-
-    // Random positions: after rows*perRow items, re-randomized.
+    function fixedPositions(count, every){ var out=[]; if (every<1) return out; for (var i=every;i<=count;i+=every) out.push(i); return out; }
     function randomPositions(count, minRows, maxRows, perRow){
       var out=[], i=0;
       minRows=Math.max(1, minRows|0); maxRows=Math.max(minRows, maxRows|0); perRow=Math.max(1, perRow|0);
-      while(true){
-        var rows = Math.floor(Math.random()*(maxRows-minRows+1))+minRows;
-        var step = Math.max(1, rows*perRow);
-        i += step;
-        if (i>count) break;
-        out.push(i);
-      }
+      while(true){ var rows=Math.floor(Math.random()*(maxRows-minRows+1))+minRows; var step=Math.max(1, rows*perRow); i+=step; if(i>count) break; out.push(i); }
       return out;
     }
-
-    // Insert banners after the given indices.
     function injectAtPositions(grid, items, positions, embed){
+      ensureStyle(embed);
       positions.forEach(function(pos){
-        var item = items[pos-1];
-        if (!item) return;
-
-        // Skip if already inserted for this embed after this item
+        var item = items[pos-1]; if (!item) return;
         var next = item.nextElementSibling;
-        if (next && next.classList && next.classList.contains('everxp-banner-insert') && next.getAttribute('data-embed-id')===String(embed.id)) {
-          return;
-        }
-
+        if (next && next.classList && next.classList.contains('everxp-banner-insert') && next.getAttribute('data-embed-id')===String(embed.id)) return;
         var wrap = buildWrapper(grid);
         wrap.setAttribute('data-embed-id', String(embed.id));
         wrap.setAttribute('data-pos', String(pos));
         wrap.innerHTML = '<div class="shop-banner-row" style="width:100%; text-align:center; display:flex; justify-content:center; flex-wrap:wrap;"><div class="shop-banner-content">'+ embed.html +'</div></div>';
-
-        // Insert and execute any scripts inside the embed
         item.parentNode.insertBefore(wrap, item.nextSibling);
         runScripts(wrap);
       });
     }
-
-    // Process a single grid for all embeds.
     function processGrid(grid){
       EMBEDS.forEach(function(embed){
-        var items = getItems(grid);
-        if (!items.length) return;
-
-        // Compute desired positions
-        var positions = [];
-        if (embed.mode === 'fixed'){
-          positions = fixedPositions(items.length, Math.max(1, embed.every|0));
-        } else {
-          positions = randomPositions(items.length, embed.minRows|0, embed.maxRows|0, embed.perRow|0);
-        }
+        var items = getItems(grid); if (!items.length) return;
+        var positions = (embed.mode==='fixed') ? fixedPositions(items.length, Math.max(1, embed.every|0))
+                                               : randomPositions(items.length, embed.minRows|0, embed.maxRows|0, embed.perRow|0);
         injectAtPositions(grid, items, positions, embed);
       });
     }
-
-    // Watch a grid for dynamic changes (AJAX, filters, pagination)
     function observeGrid(grid){
-      var obs = new MutationObserver(function(muts){
-        // When children change, recompute
-        processGrid(grid);
-      });
+      var obs = new MutationObserver(function(){ processGrid(grid); });
       obs.observe(grid, {childList:true});
-      processGrid(grid); // initial pass
+      processGrid(grid);
     }
-
-    // Find all product grids on page.
     function findGrids(){
-      var candidates = [];
-      // Woo Blocks – new Product Template
-      candidates = candidates.concat(qsa('ul.wc-block-product-template'));
-      // Woo Blocks – legacy grid
-      candidates = candidates.concat(qsa('ul.wc-block-grid__products'));
-      // Classic Woo
-      candidates = candidates.concat(qsa('ul.products'));
-      // Generic Woo Blocks containers that contain a UL
-      candidates = candidates.concat(qsa('.wp-block-woocommerce-product-template ul.wc-block-product-template'));
-      candidates = candidates.concat(qsa('.wp-block-woocommerce-all-products ul, .wp-block-woocommerce-product-collection ul'));
-
-      // Unique
-      var seen=new Set(), uniq=[];
-      for (var i=0;i<candidates.length;i++){ var g=candidates[i]; if (g && !seen.has(g)){ seen.add(g); uniq.push(g);} }
-      return uniq;
+      var c=[];
+      c=c.concat(qsa('ul.wc-block-product-template'));
+      c=c.concat(qsa('ul.wc-block-grid__products'));
+      c=c.concat(qsa('ul.products'));
+      c=c.concat(qsa('.wp-block-woocommerce-product-template ul.wc-block-product-template'));
+      c=c.concat(qsa('.wp-block-woocommerce-all-products ul, .wp-block-woocommerce-product-collection ul'));
+      var seen=new Set(), u=[]; c.forEach(function(g){ if (g && !seen.has(g)){ seen.add(g); u.push(g);} });
+      return u;
     }
-
-    function init(){
-      findGrids().forEach(observeGrid);
-    }
-
-    if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
+    function init(){ findGrids().forEach(observeGrid); }
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
     window.addEventListener('load', init);
     })();
     JS;
-        wp_add_inline_script('everxp-shop-inserter', $inline, 'after');
+            wp_add_inline_script('everxp-frontend-script', $runtime, 'after');
+        }, 20);
     }
 
 

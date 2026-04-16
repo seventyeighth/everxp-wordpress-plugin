@@ -23,6 +23,33 @@ class EverXP_Request {
         $this->domain_settings = $settings ? json_decode($settings, true) : [];
     }
 
+    public static function collect_request_meta(): array {
+        // Referrer (raw referer is already provided by WP; sanitize as URL)
+        $ref_raw = wp_get_raw_referer();
+        $ref     = $ref_raw ? esc_url_raw($ref_raw) : null;
+
+        // IP — reuse tracker helper if available
+        if (class_exists('EverXP_Tracker')) {
+            $ip = (new ReflectionClass('EverXP_Tracker'))->getMethod('get_user_ip')->isPrivate()
+                ? EverXP_Request::fallback_ip()
+                : EverXP_Tracker::get_user_ip(); // if you made it public
+        } else {
+            $ip = EverXP_Request::fallback_ip();
+        }
+
+        return [
+            'referrer_url' => $ref ?: null,
+            'user_ip'      => $ip ?: null,
+            'user_agent'   => isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field((string) wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '',
+        ];
+    }
+
+    // Minimal IP fallback if Tracker not loaded
+    private static function fallback_ip(): string {
+        $raw = isset($_SERVER['REMOTE_ADDR']) ? (string) wp_unslash($_SERVER['REMOTE_ADDR']) : '';
+        $raw = preg_replace('/%.+$/', '', $raw);
+        return filter_var($raw, FILTER_VALIDATE_IP) ? $raw : '';
+    }
 
     public function get_multiple_headings($params) {
         $user_identifier = self::everxp_get_user_identifier();
@@ -254,6 +281,8 @@ class EverXP_Request {
      */
     private function log_fetch($folder_id, $data_id, $user_identifier, $event_type = 'request', $event_data = []) {
 
+        $meta = EverXP_Request::collect_request_meta();
+
         global $wpdb;
         $wpdb->insert(
             "{$wpdb->prefix}api_user_logs",
@@ -266,7 +295,7 @@ class EverXP_Request {
                 'event_type'      => sanitize_text_field($event_type),
                 'event_data'      => json_encode($event_data),
                 'utm_parameters'  => NULL, // Remove UTM tracking for requests
-                'referrer_url'    => isset($_SERVER['HTTP_REFERER']) ? esc_url($_SERVER['HTTP_REFERER']) : NULL,
+                'referrer_url'    => 'referrer_url' => $meta['referrer_url'] ?? null,
                 'synced'          => 0
             ],
             ['%d', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%d']
@@ -293,7 +322,8 @@ class EverXP_Request {
         }
 
         // Fallback to IP address
-        $user_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown_ip';
+        $meta    = EverXP_Request::collect_request_meta();
+        $user_ip = $meta['user_ip'] ?: '';
 
         // Add extra layer of hashing for security
         $hashed_ip = hash('sha256', $user_ip);

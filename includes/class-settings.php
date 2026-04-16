@@ -7,7 +7,168 @@ class EverXP_Settings {
     public static function init() {
         // Hook to create the admin menu
         add_action('admin_menu', [self::class, 'add_admin_menu']);
+        add_action('admin_enqueue_scripts', [self::class, 'enqueue_admin_assets']);
+
+	    // NEW: secure endpoints
+	    add_action('admin_post_everxp_verify_api_key', [self::class, 'handle_verify_api_key']);
+	    add_action('admin_post_everxp_verify_callback', [self::class, 'handle_verify_callback']);
+
+	    // Allow the external host for wp_safe_redirect()
+	    add_filter('allowed_redirect_hosts', [self::class, 'allow_external_redirect_hosts']);
+
     }
+
+	public static function handle_verify_api_key(): void {
+	    if (!current_user_can('manage_options')) {
+	        wp_die('Insufficient permissions.', 403);
+	    }
+	    check_admin_referer('everxp_verify_api_key', '_everxp_nonce');
+
+	    $api_key = sanitize_text_field($_POST['everxp_api_key'] ?? '');
+	    if ($api_key === '') {
+	        wp_safe_redirect(admin_url('admin.php?page=everxp-settings&verification=error&reason=missing_key'));
+	        exit;
+	    }
+
+	    $domain        = function_exists('everxp_check_domain') ? everxp_check_domain() : (wp_parse_url(home_url(), PHP_URL_HOST) ?: '');
+	    //$dashboard_url = 'https://dashboard.everxp.com/login';
+	    $dashboard_url = 'http://localhost/everxp/everxp-dashboard/login';
+
+	    // Callback URL carries a nonce "cb" so we can verify even if external doesn't echo token/state
+	    $callback_url = add_query_arg(
+	        [
+	            'action' => 'everxp_verify_callback',
+	            'cb'     => wp_create_nonce('everxp_verify_callback'),
+	        ],
+	        admin_url('admin-post.php')
+	    );
+
+	    // Optional "state" (extra binding). If external doesn’t return it, the "cb" nonce still protects the callback.
+	    $state = wp_generate_password(20, false, false);
+	    set_transient('everxp_state_' . $state, ['user_id' => get_current_user_id(), 'created' => time()], 30 * MINUTE_IN_SECONDS);
+
+	    // Build signed token (unchanged)
+	    $secret_key = 'everxp-team-78';
+	    $iv_len     = openssl_cipher_iv_length('aes-256-cbc');
+	    $iv         = openssl_random_pseudo_bytes($iv_len);
+	    $hash       = hash_hmac('sha256', $api_key . $domain, $secret_key);
+	    $payload    = wp_json_encode(['api_key' => $api_key, 'domain' => $domain], JSON_UNESCAPED_SLASHES);
+	    $cipher     = openssl_encrypt($payload, 'aes-256-cbc', $secret_key, 0, $iv);
+	    $token      = base64_encode($iv . $cipher);
+
+	    // Send user to dashboard; if the dashboard ignores token/state, it can still redirect back to $callback_url
+	    $url = add_query_arg(
+	        [
+	            'token'    => rawurlencode($token),
+	            'hash'     => $hash,
+	            'state'    => rawurlencode($state),
+	            'redirect' => rawurlencode($callback_url),
+	        ],
+	        $dashboard_url
+	    );
+
+	    wp_safe_redirect($url);
+	    exit;
+	}
+
+
+	/** Allow external EverXP dashboard host(s) for safe redirects. */
+	public static function allow_external_redirect_hosts(array $hosts): array {
+	    $hosts[] = 'dashboard.everxp.com';
+	    $hosts[] = 'localhost'; // uncomment for local dev
+	    return array_values(array_unique($hosts));
+	}
+
+	/** Secure callback endpoint: validate state + signature; save key; redirect back with notice. */
+	public static function handle_verify_callback(): void {
+	    // Must be logged-in admin
+	    if (!current_user_can('manage_options')) {
+	        auth_redirect();
+	        exit;
+	    }
+
+	    // Two acceptable security gates: callback nonce "cb" OR transient "state"
+	    $cb    = isset($_GET['cb']) ? sanitize_text_field(wp_unslash($_GET['cb'])) : '';
+	    $state = isset($_GET['state']) ? sanitize_text_field(wp_unslash($_GET['state'])) : '';
+
+	    $cb_ok = $cb && wp_verify_nonce($cb, 'everxp_verify_callback');
+	    $st_ok = false;
+	    if ($state !== '') {
+	        $meta = get_transient('everxp_state_' . $state);
+	        delete_transient('everxp_state_' . $state); // one-time use
+	        $st_ok = is_array($meta) && !empty($meta['user_id']) && (int)$meta['user_id'] === get_current_user_id();
+	    }
+
+	    if (!$cb_ok && !$st_ok) {
+	        wp_safe_redirect(admin_url('admin.php?page=everxp-settings&verification=error&reason=bad_state'));
+	        exit;
+	    }
+
+	    // Preferred: token/hash (new flow)
+	    $token = isset($_GET['token']) ? sanitize_text_field(wp_unslash($_GET['token'])) : '';
+	    $hash  = isset($_GET['hash'])  ? sanitize_text_field(wp_unslash($_GET['hash']))  : '';
+
+	    $api_key = '';
+	    $domain  = '';
+
+	    if ($token !== '' && $hash !== '') {
+	        $secret_key = 'everxp-team-78';
+	        $decoded    = base64_decode($token, true);
+	        if ($decoded === false) {
+	            wp_safe_redirect(admin_url('admin.php?page=everxp-settings&verification=error&reason=bad_token'));
+	            exit;
+	        }
+	        $iv_len = openssl_cipher_iv_length('aes-256-cbc');
+	        $iv     = substr($decoded, 0, $iv_len);
+	        $cipher = substr($decoded, $iv_len);
+	        $json   = openssl_decrypt($cipher, 'aes-256-cbc', $secret_key, 0, $iv);
+	        $data   = json_decode((string)$json, true);
+
+	        if (!is_array($data) || empty($data['api_key']) || empty($data['domain'])) {
+	            wp_safe_redirect(admin_url('admin.php?page=everxp-settings&verification=error&reason=bad_payload'));
+	            exit;
+	        }
+
+	        // Verify HMAC
+	        $calc = hash_hmac('sha256', $data['api_key'] . $data['domain'], $secret_key);
+	        if (!hash_equals($hash, $calc)) {
+	            wp_safe_redirect(admin_url('admin.php?page=everxp-settings&verification=error&reason=bad_hash'));
+	            exit;
+	        }
+
+	        $api_key = (string)$data['api_key'];
+	        $domain  = (string)$data['domain'];
+	    } else {
+	        // Legacy: ?verification=success&api_key=... (from your older flow)
+	        $verification = isset($_GET['verification']) ? sanitize_key($_GET['verification']) : '';
+	        $maybe_key    = isset($_GET['api_key']) ? sanitize_text_field(wp_unslash($_GET['api_key'])) : '';
+	        if ($verification !== 'success' || $maybe_key === '') {
+	            wp_safe_redirect(admin_url('admin.php?page=everxp-settings&verification=error&reason=missing_params'));
+	            exit;
+	        }
+	        $api_key = $maybe_key;
+	        // Best-effort domain check
+	        $domain = function_exists('everxp_check_domain') ? everxp_check_domain() : (wp_parse_url(home_url(), PHP_URL_HOST) ?: '');
+	    }
+
+	    // Optional safety: ensure returned domain matches this site
+	    $site_domain = function_exists('everxp_check_domain') ? everxp_check_domain() : (wp_parse_url(home_url(), PHP_URL_HOST) ?: '');
+	    if ($domain && !hash_equals((string)$site_domain, (string)$domain)) {
+	        wp_safe_redirect(admin_url('admin.php?page=everxp-settings&verification=error&reason=domain_mismatch'));
+	        exit;
+	    }
+
+	    // Save encrypted key
+	    $encrypted_api_key = class_exists('EverXP_Encryption_Helper')
+	        ? EverXP_Encryption_Helper::encrypt($api_key)
+	        : $api_key;
+
+	    update_option('everxp_api_key', $encrypted_api_key);
+
+	    wp_safe_redirect(admin_url('admin.php?page=everxp-settings&verification=success'));
+	    exit;
+	}
+
 
 	public static function add_admin_menu() {
 	    // Add the main menu page
@@ -103,16 +264,6 @@ class EverXP_Settings {
 	    echo '<li><a href="https://accessily.com" target="_blank">Guest Post Marketplace</a></li>';
 	    echo '</ul></div>';
 
-	    // Inline CSS
-	    echo '<style>
-	        .everxp-style-options-table, .everxp-banks-table { width: 100%; margin: 20px 0; border-collapse: collapse; }
-	        .everxp-style-options-table th, .everxp-banks-table th,
-	        .everxp-style-options-table td, .everxp-banks-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-	        .everxp-style-options-table tr:nth-child(even), .everxp-banks-table tr:nth-child(even) { background-color: #f9f9f9; }
-	        pre { background-color: #f4f4f4; padding: 10px; border: 1px solid #ddd; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
-	        .form-table th { width: 260px; }
-	        #everxp-custom-hook-wrap label, #everxp-priority-wrap label { display:inline-block; min-width:90px; }
-	    </style>';
 	}
 
 	public static function render_docs_page() {
@@ -151,32 +302,6 @@ class EverXP_Settings {
 
 	    echo '</tbody></table>';
 
-	    // Inline CSS for Styling (Minimal)
-	    echo '<style>
-	        .everxp-style-options-table {
-	            width: 90%;
-	            margin: 20px auto;
-	            border-collapse: collapse;
-	            font-size: 14px;
-	        }
-	        .everxp-style-options-table th, .everxp-style-options-table td {
-	            border: 1px solid #ddd;
-	            padding: 8px;
-	            text-align: left;
-	        }
-	        .everxp-style-options-table tr:nth-child(even) {
-	            background-color: #f9f9f9;
-	        }
-	        pre {
-	            background-color: #f4f4f4;
-	            padding: 10px;
-	            border: 1px solid #ddd;
-	            border-radius: 5px;
-	            overflow-x: auto;
-	            word-wrap: break-word;
-	        }
-	    </style>';
-
 	    echo '</div>';
 	}
 
@@ -186,122 +311,29 @@ class EverXP_Settings {
 
     // Render the settings page content
 	public static function render_settings_page() {
-	    // Check if form is submitted
-	    if (isset($_POST['verify_api_key'])) {
-	        $api_key = sanitize_text_field($_POST['everxp_api_key']);
-	        $domain = everxp_check_domain(); // Automatically fetch the domain
-
-	        // Redirect to external dashboard for verification
-			//$dashboard_url   = 'http://localhost/everxp/everxp-dashboard/login';
-			$dashboard_url = 'https://dashboard.everxp.com/login';
-			$redirect_url    = admin_url('admin.php?page=everxp-settings'); 
-			$secret_key      = 'everxp-team-78'; 
-			$iv_length       = openssl_cipher_iv_length('aes-256-cbc');
-			$iv              = openssl_random_pseudo_bytes($iv_length);
-			$hash            = hash_hmac('sha256', $api_key . $domain, $secret_key);
-			$token_payload   = json_encode(['api_key' => $api_key, 'domain' => $domain]);
-			$encrypted_token = openssl_encrypt($token_payload, 'aes-256-cbc', $secret_key, 0, $iv);
-
-			// Combine IV and encrypted token
-			$encrypted_data = base64_encode($iv . $encrypted_token);
-
-	        $full_redirect = add_query_arg([
-				'token'    => $encrypted_data,
-				'hash'     => $hash,
-				'redirect' => urlencode($redirect_url),
-			], $dashboard_url);
-
-
-			if (!headers_sent()) {
-		        wp_redirect($full_redirect);
-		        exit;
-		    } else {
-			    echo '<script>window.location="' . esc_url_raw($full_redirect) . '";</script>';
-			    exit;
-		    }
+	    // Status message from query args (display only; no data processing)
+	    $verification = isset($_GET['verification']) ? sanitize_key($_GET['verification']) : '';
+	    if ($verification === 'success') {
+	        echo '<div class="notice notice-success is-dismissible"><p>API Key verified and saved successfully!</p></div>';
+	    } elseif ($verification === 'error') {
+	        $reason = isset($_GET['reason']) ? sanitize_key($_GET['reason']) : 'unknown';
+	        echo '<div class="notice notice-error is-dismissible"><p>Verification failed: ' . esc_html($reason) . '</p></div>';
 	    }
 
-
-	    // Save the API key after returning from verification
-	    if (isset($_GET['verification']) && $_GET['verification'] === 'success') {
-	        $api_key = isset($_GET['api_key']) ? sanitize_text_field($_GET['api_key']) : '';
-	        $freshness = isset($_GET['freshness']) ? sanitize_text_field($_GET['freshness']) : '';
-	        if (!empty($api_key)) {
-
-        	    $encrypted_api_key = EverXP_Encryption_Helper::encrypt($api_key);
-	            update_option('everxp_api_key', $encrypted_api_key);
-
-	            echo '<div class="notice notice-success is-dismissible"><p>API Key verified and saved successfully!</p></div>';
-	        }
+	    // API key status
+	    $stored = get_option('everxp_api_key');
+	    if ($stored && class_exists('EverXP_Encryption_Helper') && EverXP_Encryption_Helper::decrypt($stored)) {
+	        echo '<div class="notice notice-info is-dismissible"><p>API Key is verified and active.</p></div>';
 	    }
 
-	    // Check if API key exists and is decrypted successfully
-	    $stored_encrypted_api_key = get_option('everxp_api_key');
-	    $api_status_message = '';
-	    if ($stored_encrypted_api_key) {
-	        $decrypted_api_key = EverXP_Encryption_Helper::decrypt($stored_encrypted_api_key);
-	        if ($decrypted_api_key) {
-	            $api_status_message = '<div class="notice notice-info"><p>API Key is already verified and active.</p></div>';
-	        } else {
-	            $api_status_message = '<div class="notice notice-error"><p>Stored API Key is invalid or corrupted.</p></div>';
-	        }
-	    }
-
-	    // Custom styles for the form
-	    echo '<style>
-	        .everxp-settings-form {
-	            max-width: 600px;
-	            background: #fff;
-	            padding: 20px;
-	            border: 1px solid #ddd;
-	            border-radius: 8px;
-	            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-	        }
-	        .everxp-settings-form label {
-	            font-size: 14px;
-	            font-weight: 600;
-	            margin-bottom: 5px;
-	            display: block;
-	            color: #333;
-	        }
-	        .everxp-settings-form input[type="text"] {
-	            width: 100%;
-	            padding: 8px;
-	            border: 1px solid #ccc;
-	            border-radius: 4px;
-	            font-size: 14px;
-	            margin-bottom: 15px;
-	            box-sizing: border-box;
-	        }
-	        .everxp-settings-form button {
-	            background: #0073aa;
-	            color: #fff;
-	            border: none;
-	            padding: 10px 15px;
-	            border-radius: 4px;
-	            font-size: 14px;
-	            cursor: pointer;
-	        }
-	        .everxp-settings-form button:hover {
-	            background: #005a87;
-	        }
-	        .notice {
-	            margin-bottom: 20px;
-	        }
-	    </style>';
-
-	    // Render the settings page
 	    echo '<h1>EverXP Verification</h1>';
-
-	    // Display API status message
-	    echo $api_status_message;
-
-	    echo '<form method="post" class="everxp-settings-form">';
-	    echo '<input type="hidden" name="verify_api_key" value="1">';
-	    echo '<label for="everxp_api_key">API Key:</label>';
-	    echo '<input type="text" id="everxp_api_key" name="everxp_api_key" placeholder="Enter your API Key" value="">';
-	    echo '<button type="submit">Verify API Key</button>';
-	    echo '</form>';
+		echo '<form method="post" action="' . esc_url( admin_url('admin-post.php?action=everxp_verify_api_key') ) . '" class="everxp-settings-form">';
+		    // Nonce with explicit field name
+		    wp_nonce_field('everxp_verify_api_key', '_everxp_nonce');
+		    echo '<label for="everxp_api_key">API Key:</label>';
+		    echo '<input type="text" id="everxp_api_key" name="everxp_api_key" placeholder="Enter your API Key" value="">';
+		    echo '<button type="submit" class="button button-primary">Verify API Key</button>';
+		echo '</form>';
 	}
 
 
@@ -419,51 +451,125 @@ class EverXP_Settings {
 	                </div>
 	            </div>
 	        </div>
-
-	        <!-- Inline JavaScript -->
-	        <script>
-	            (function($) {
-	                $('#generate-shortcode').on('click', function() {
-	                    const form = $('#everxp-shortcode-form').serializeArray();
-	                    let shortcode = '';
-	                    let isMultiple = false;
-
-	                    // Determine shortcode type
-	                    form.forEach(field => {
-	                        if (field.name === 'display' || field.name === 'limit' || field.name === 'separator') {
-	                            isMultiple = true;
-	                        }
-	                    });
-
-	                    if (isMultiple) {
-	                        shortcode = '[everxp_shortcode_multiple ';
-	                    } else {
-	                        shortcode = '[everxp_shortcode ';
-	                    }
-
-	                    // Build the shortcode
-	                    form.forEach(field => {
-	                        if (field.value) {
-	                            shortcode += `${field.name}="${field.value}" `;
-	                        }
-	                    });
-	                    shortcode += ']';
-
-	                    // Update the UI
-	                    $('#generated-shortcode').text(shortcode);
-
-	                    // Render a basic preview (mock for demonstration)
-	                    let previewContent = isMultiple
-	                        ? `<p>Preview of multiple shortcode (e.g., headlines or text): <strong>${shortcode}</strong></p>`
-	                        : `<p>Preview of single shortcode: <strong>${shortcode}</strong></p>`;
-
-	                    $('#shortcode-preview').html(previewContent);
-	                });
-	            })(jQuery);
-	        </script>
 	    </div>
 	    <?php
 	}
+
+    public static function enqueue_admin_assets(string $hook_suffix) : void {
+        // Only our pages
+        $page = isset($_GET['page']) ? sanitize_key($_GET['page']) : '';
+        $allowed = ['everxp','everxp-settings','everxp-sync','everxp-docs','everxp-shortcode-generator'];
+        if (!in_array($page, $allowed, true)) {
+            return;
+        }
+
+        // Register empty handles we can attach inline assets to
+        // Style
+        if (!wp_style_is('everxp-admin-style', 'registered')) {
+            wp_register_style('everxp-admin-style', false, [], null);
+        }
+        wp_enqueue_style('everxp-admin-style');
+
+        // Script (defer supported since WP 6.3)
+        if (!wp_script_is('everxp-admin-script', 'registered')) {
+            wp_register_script(
+                'everxp-admin-script',
+                false,
+                ['jquery'],
+                null,
+                [ 'in_footer' => true, 'strategy' => 'defer' ] // async/defer ready
+            );
+        }
+        wp_enqueue_script('everxp-admin-script');
+
+        // ================= Inline CSS per page =================
+        if ($page === 'everxp') {
+            // CSS moved from render_main_page()
+            $css = <<<CSS
+.everxp-style-options-table, .everxp-banks-table { width: 100%; margin: 20px 0; border-collapse: collapse; }
+.everxp-style-options-table th, .everxp-banks-table th,
+.everxp-style-options-table td, .everxp-banks-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+.everxp-style-options-table tr:nth-child(even), .everxp-banks-table tr:nth-child(even) { background-color: #f9f9f9; }
+pre { background-color: #f4f4f4; padding: 10px; border: 1px solid #ddd; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+.form-table th { width: 260px; }
+#everxp-custom-hook-wrap label, #everxp-priority-wrap label { display:inline-block; min-width:90px; }
+CSS;
+            wp_add_inline_style('everxp-admin-style', $css);
+        }
+
+        if ($page === 'everxp-docs') {
+            // CSS moved from render_docs_page()
+            $css = <<<CSS
+.everxp-style-options-table {
+    width: 90%;
+    margin: 20px auto;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+.everxp-style-options-table th, .everxp-style-options-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+.everxp-style-options-table tr:nth-child(even) { background-color: #f9f9f9; }
+pre { background-color: #f4f4f4; padding: 10px; border: 1px solid #ddd; border-radius: 5px; overflow-x: auto; word-wrap: break-word; }
+CSS;
+            wp_add_inline_style('everxp-admin-style', $css);
+        }
+
+        if ($page === 'everxp-settings') {
+            // CSS moved from render_settings_page()
+            $css = <<<CSS
+.everxp-settings-form { max-width: 600px; background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.everxp-settings-form label { font-size: 14px; font-weight: 600; margin-bottom: 5px; display: block; color: #333; }
+.everxp-settings-form input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-bottom: 15px; box-sizing: border-box; }
+.everxp-settings-form button { background: #0073aa; color: #fff; border: none; padding: 10px 15px; border-radius: 4px; font-size: 14px; cursor: pointer; }
+.everxp-settings-form button:hover { background: #005a87; }
+.notice { margin-bottom: 20px; }
+CSS;
+            wp_add_inline_style('everxp-admin-style', $css);
+        }
+
+        if ($page === 'everxp-shortcode-generator') {
+            // (Optional) CSS for preview container
+            $css = <<<CSS
+#shortcode-preview { border: 1px solid #ddd; padding: 15px; background: #f9f9f9; }
+CSS;
+            wp_add_inline_style('everxp-admin-style', $css);
+
+            // JS moved from render_shortcode_generator_page()
+            $js = <<<JS
+(function($){
+  $('#generate-shortcode').on('click', function(){
+    var form = $('#everxp-shortcode-form').serializeArray();
+    var shortcode = '';
+    var isMultiple = false;
+
+    form.forEach(function(field){
+      if (field.name === 'display' || field.name === 'limit' || field.name === 'separator') {
+        isMultiple = true;
+      }
+    });
+
+    shortcode = isMultiple ? '[everxp_shortcode_multiple ' : '[everxp_shortcode ';
+
+    form.forEach(function(field){
+      if (field.value) { shortcode += field.name + '="' + field.value.replace(/"/g,'\\"') + '" '; }
+    });
+    shortcode += ']';
+
+    $('#generated-shortcode').text(shortcode);
+
+    var preview = isMultiple
+      ? '<p>Preview of multiple shortcode: <strong>' + shortcode + '</strong></p>'
+      : '<p>Preview of single shortcode: <strong>' + shortcode + '</strong></p>';
+    $('#shortcode-preview').html(preview);
+  });
+})(jQuery);
+JS;
+            wp_add_inline_script('everxp-admin-script', $js, 'after');
+        }
+    }
 
 
 

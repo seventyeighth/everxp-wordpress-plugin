@@ -241,32 +241,35 @@ function everxp_clear_cron_job() {
 
 if (!function_exists('everxp_check_domain')) {
     final class EverXP_Domain_Check {
-        public static function get_domain() {
-            $headers = function_exists('getallheaders') ? getallheaders() : [];
+        public static function get_domain(): string {
+            // Prefer Origin header (if valid)
+            $headers = function_exists('getallheaders') ? (array) getallheaders() : [];
+            $origin  = isset($headers['Origin']) ? (string) $headers['Origin'] : '';
 
-            // Fetch the domain from the headers or fallback to HTTP_HOST
-            $domain = isset($headers['Origin']) ? $headers['Origin'] : $_SERVER['HTTP_HOST'];
-
-            // If the domain is empty, assign localhost as the default
-            if (empty($domain)) {
-                $domain = 'localhost';
+            $host = '';
+            if ($origin) {
+                $parsed = wp_parse_url($origin);
+                if (!empty($parsed['host'])) {
+                    $host = $parsed['host'];
+                }
+            }
+            // Fallback to HTTP_HOST (sanitized)
+            if ($host === '') {
+                $raw = isset($_SERVER['HTTP_HOST']) ? (string) wp_unslash($_SERVER['HTTP_HOST']) : '';
+                // drop port if present
+                $host = preg_replace('/:\d+$/', '', $raw);
             }
 
-            // If localhost with port, normalize it to 'localhost'
-            if (strpos($domain, 'localhost:') !== false) {
-                $domain = 'localhost';
+            $host = strtolower(sanitize_text_field($host ?: 'localhost'));
+
+            // Normalize localhost with ports and empty
+            if ($host === '' || strpos($host, 'localhost') === 0) {
+                $host = 'localhost';
             }
-
-            // Remove http://, https://, and trailing slashes
-            $domain = parse_url($domain, PHP_URL_HOST) ?? $domain;
-            $domain = rtrim($domain, '/');
-
-            return $domain;
+            return $host;
         }
     }
-
-    // Wrapper function to prevent direct manipulation
-    function everxp_check_domain() {
+    function everxp_check_domain(): string {
         return EverXP_Domain_Check::get_domain();
     }
 }

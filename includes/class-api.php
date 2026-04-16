@@ -9,7 +9,9 @@ class EverXP_API {
             register_rest_route('everxp/v1', '/request', [
                 'methods' => 'POST',
                 'callback' => [self::class, 'handle_request'],
-                'permission_callback' => '__return_true',
+                'permission_callback' => function() {
+                    return current_user_can( 'manage_options' );
+                },
             ]);
         });
     }

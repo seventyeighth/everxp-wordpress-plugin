@@ -67,6 +67,26 @@ class EverXP_Tracker {
         ]);
     }
 
+
+    /** Return sanitized UTM data from cookie as safe strings. */
+    private static function get_sanitized_utms(): array {
+        if (empty($_COOKIE['everxp_utms'])) {
+            return [];
+        }
+        $raw = (string) wp_unslash($_COOKIE['everxp_utms']);
+        $arr = json_decode($raw, true);
+        if (!is_array($arr)) {
+            return [];
+        }
+        $out = [];
+        foreach ($arr as $k => $v) {
+            $key = sanitize_key($k);
+            // allow typical UTM values as plain text
+            $out[$key] = is_scalar($v) ? sanitize_text_field((string) $v) : '';
+        }
+        return $out;
+    }
+
     /**
      * Get EverXP UTM Parameters from Cookie
      */
@@ -250,7 +270,7 @@ class EverXP_Tracker {
         $order = wc_get_order($order_id);
         if (!$order || $order->get_status() === 'failed') return;
 
-        $utm_parameters = self::get_everxp_utms();
+        $utm_parameters = self::get_sanitized_utms();
         $user_identifier = self::everxp_get_user_identifier();
 
         if (!self::is_everxp_attributed($utm_parameters)) {

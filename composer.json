@@ -13,8 +13,5 @@
             "name": "1178 Team"
         }
     ],
-    "minimum-stability": "stable",
-    "require-dev": {
-        "phpunit/phpunit": "^10.5"
-    }
+    "minimum-stability": "stable"
 }

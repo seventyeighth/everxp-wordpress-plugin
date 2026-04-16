@@ -30,7 +30,7 @@ class EverXP_Encryption_Helper {
 
     private static function generate_key() {
         // Use stable factors: ABSPATH and WordPress keys
-        $stable_factor = hash('sha256', ABSPATH . AUTH_KEY);
+        $stable_factor = hash('sha256', plugin_dir_path(__FILE__) . AUTH_KEY);
         return hash('sha256', $stable_factor);
     }
 

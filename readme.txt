@@ -1,5 +1,5 @@
 === EverXP ===
-Contributors: 1178Team
+Contributors: Studio Avisrur
 Tags: gamification,analytics,quotes,micro-copies,langauge,language
 Requires at least: 5.5
 Tested up to: 6.7
@@ -18,6 +18,12 @@ Creates millions of different unique experiences for every visitor & deliver dyn
 2. Upload `everxp-wordpress-plugin` directory to yours `/wp-content/plugins/` directory
 3. Activate the plugin through the 'Plugins' menu in WordPress
 
+
+== External services ==
+This plugin connects to EverXP API to obtain click and views on banners activity, it's needed to show the analytics results and sync banners to your website.
+
+It sends the user's analytics every time the widget is loaded.
+This service is provided by "Accessily LTD": terms of use, privacy policy.
 
 == Frequently Asked Questions ==
 🔹 What's EverXP all about?
