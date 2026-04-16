@@ -295,7 +295,7 @@ class EverXP_Request {
                 'event_type'      => sanitize_text_field($event_type),
                 'event_data'      => json_encode($event_data),
                 'utm_parameters'  => NULL, // Remove UTM tracking for requests
-                'referrer_url'    => 'referrer_url' => $meta['referrer_url'] ?? null,
+                'referrer_url'    => $meta['referrer_url'] ?? null,
                 'synced'          => 0
             ],
             ['%d', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%d']
