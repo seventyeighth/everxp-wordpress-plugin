@@ -31,8 +31,8 @@ class EverXP_Settings {
 	    }
 
 	    $domain        = function_exists('everxp_check_domain') ? everxp_check_domain() : (wp_parse_url(home_url(), PHP_URL_HOST) ?: '');
-	    //$dashboard_url = 'https://dashboard.everxp.com/login';
-	    $dashboard_url = 'http://localhost/everxp/everxp-dashboard/login';
+	    $dashboard_url = 'https://dashboard.everxp.com/login';
+	    //$dashboard_url = 'http://localhost/everxp/everxp-dashboard/login';
 
 	    // Callback URL carries a nonce "cb" so we can verify even if external doesn't echo token/state
 	    $callback_url = add_query_arg(
