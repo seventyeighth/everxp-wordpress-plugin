@@ -167,7 +167,7 @@ class EverXP_Sync {
 
         // Surface real API errors before checking data structure
         if ($http_code === 401 || $http_code === 403) {
-            return ['success' => false, 'message' => 'API key rejected (HTTP ' . $http_code . '). Please reconnect your API key in Settings.'];
+            return ['success' => false, 'message' => 'API key rejected (HTTP ' . $http_code . '). Domain sent: ' . esc_html($domain) . '. Make sure this domain is registered in your EverXP dashboard, then reconnect your API key in Settings.'];
         }
         if ($http_code !== 200) {
             $api_msg = is_array($insert_data) ? ($insert_data['message'] ?? $insert_data['error'] ?? $body) : $body;
