@@ -143,7 +143,10 @@ class EverXP_Sync {
         ], $url), [
             'headers' => [
                 'Authorization' => 'Bearer ' . $decrypted_api_key,
+                'Accept'        => 'application/json',
+                'User-Agent'    => 'EverXP-WordPress-Plugin/' . (defined('EVERXP_DB_VERSION') ? EVERXP_DB_VERSION : '3.8'),
             ],
+            'timeout' => 30,
         ]);
 
 

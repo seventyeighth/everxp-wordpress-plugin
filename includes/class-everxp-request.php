@@ -24,18 +24,9 @@ class EverXP_Request {
     }
 
     public static function collect_request_meta(): array {
-        // Referrer (raw referer is already provided by WP; sanitize as URL)
         $ref_raw = wp_get_raw_referer();
         $ref     = $ref_raw ? esc_url_raw($ref_raw) : null;
-
-        // IP — reuse tracker helper if available
-        if (class_exists('EverXP_Tracker')) {
-            $ip = (new ReflectionClass('EverXP_Tracker'))->getMethod('get_user_ip')->isPrivate()
-                ? EverXP_Request::fallback_ip()
-                : EverXP_Tracker::get_user_ip(); // if you made it public
-        } else {
-            $ip = EverXP_Request::fallback_ip();
-        }
+        $ip      = self::fallback_ip();
 
         return [
             'referrer_url' => $ref ?: null,

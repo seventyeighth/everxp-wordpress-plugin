@@ -141,8 +141,19 @@ class EverXP_Embeds {
 
                 // Route shop-grid per-item placements to JS (only when loop is configured)
                 if (in_array($placement, $js_shop_hooks, true)) {
+                    // Only process WC shop hooks when actually on a WC archive/shop page —
+                    // otherwise the hook never fires and pre-rendering is wasted work.
+                    $on_wc_archive = function_exists('is_shop') && (
+                        is_shop() ||
+                        (function_exists('is_product_taxonomy') && is_product_taxonomy()) ||
+                        (function_exists('is_product_category') && is_product_category()) ||
+                        (function_exists('is_product_tag')      && is_product_tag())
+                    );
+                    if (!$on_wc_archive) { continue; } // skip entirely; hook won't fire here
+
                     $loop = self::get_loop_settings($e);
                     if ($loop['enabled'] && self::passes_scope($e) && self::passes_conditions($e)) {
+                        $ec  = !empty($e['conditions']) ? (array)(json_decode($e['conditions'], true) ?: []) : [];
                         $js_payloads[] = [
                             'id'         => (int)$e['id'],
                             'html'       => self::render($e), // pre-rendered HTML
@@ -151,10 +162,13 @@ class EverXP_Embeds {
                             'perRow'     => (int)$loop['per_row'],
                             'minRows'    => (int)$loop['min_rows'],
                             'maxRows'    => (int)$loop['max_rows'],
+                            'css'        => (string)($ec['custom_css'] ?? ''),
                         ];
-                        continue; // handled via JS; skip PHP hook
                     }
-                    // loop disabled → fall through to PHP hook registration below
+                    // Never register WC shop hooks as PHP actions — the hook fires before/inside
+                    // each product <li>, so direct echo produces invalid HTML (<span> inside <ul>).
+                    // JS handles positioning and wrapping in <li> correctly.
+                    continue;
                 }
 
                 // Everything else stays with PHP hooks
@@ -255,13 +269,9 @@ class EverXP_Embeds {
       var tag = isList ? 'LI' : 'DIV';
       var el  = document.createElement(tag);
       el.className = 'everxp-banner-insert';
-      el.style.cssText = [
-        'grid-column:1 / -1','width:100%','flex:0 0 100%','float:none','clear:both','list-style:none',
-        (isList ? 'display:list-item' : 'display:block'),'margin:30px 0'
-      ].join(';');
-      if (grid.classList.contains('products') || grid.closest('.elementor-woocommerce-products')){
-        el.classList.add('product');
-      }
+      // Do NOT add 'product' class — theme CSS (float:left; width:25%) would override our width.
+      // grid-column spans all CSS-grid columns; flex:0 0 100% spans a full flex row.
+      el.style.cssText = 'grid-column:1/-1;flex:0 0 100%;width:100%;display:block;list-style:none;margin:0;padding:0;box-sizing:border-box;';
       return el;
     }
     function getItems(grid){
@@ -576,7 +586,6 @@ class EverXP_Embeds {
         // EDIT FORM
         $editing = (isset($_GET['everxp_action'], $_GET['id']) && $_GET['everxp_action'] === 'edit' && ($row = self::get(absint($_GET['id']))));
         if ($editing) {
-            $row = self::get(absint($_GET['id']));
             if (!$row) {
                 echo '<div class="error"><p>Embed not found.</p></div>';
             } else {
@@ -657,8 +666,10 @@ class EverXP_Embeds {
         }
         echo '</tbody></table>';
 
-        echo '<h2 style="margin-top:24px;">Add New Embed</h2>';
-        self::render_form(null, 'create');
+        if (!$editing) {
+            echo '<h2 style="margin-top:24px;">Add New Embed</h2>';
+            self::render_form(null, 'create');
+        }
 
         echo '</div>'; // .wrap
     }
@@ -748,6 +759,8 @@ class EverXP_Embeds {
             $wrapper_in = self::detect_default_wrapper();
         }
 
+        $custom_css = wp_strip_all_tags(wp_unslash($_POST['custom_css'] ?? ''));
+
         $conditions = [
             'post_types' => $post_types,
             'locations'  => $locations,
@@ -758,9 +771,10 @@ class EverXP_Embeds {
             'exclude_tags' => $exc_tags,
             'include_ids' => $inc_ids,
             'exclude_ids' => $exc_ids,
-            'users'   => ['logged' => $user_state, 'roles' => $roles],
-            'devices' => $devices,
-            'languages' => $languages,
+            'users'      => ['logged' => $user_state, 'roles' => $roles],
+            'devices'    => $devices,
+            'languages'  => $languages,
+            'custom_css' => $custom_css,
             'loop' => [
                 'mode'        => in_array($loop_mode, ['fixed','random'], true) ? $loop_mode : 'fixed',
                 'every_items' => $every_items,
@@ -858,8 +872,9 @@ class EverXP_Embeds {
         $user_state = $users['logged'] ?? 'any';
         $roles      = (array)($users['roles'] ?? []);
 
-        $devices   = (array)($conditions['devices'] ?? []);
-        $languages = (array)($conditions['languages'] ?? []);
+        $devices    = (array)($conditions['devices']    ?? []);
+        $languages  = (array)($conditions['languages']  ?? []);
+        $custom_css = (string)($conditions['custom_css'] ?? '');
 
         $loop = (array)($conditions['loop'] ?? []);
         $loop_mode   = $loop['mode']        ?? 'fixed';
@@ -1211,6 +1226,13 @@ class EverXP_Embeds {
                 <p class="description">Tip: on Twenty Twenty-Four use “Woo Blocks”, on Hello use “Hello Elementor”.</p>
               </div>';
 
+        echo '</td></tr>';
+
+        // -------- Custom CSS --------
+        echo '<tr><th scope="row"><label for="everxp-custom-css">Custom CSS</label></th><td>';
+        echo '<textarea id="everxp-custom-css" name="custom_css" rows="8" style="width:100%;font-family:monospace;font-size:13px;" placeholder=".everxp-banner-insert { margin: 20px 0; }">'
+           . esc_textarea($custom_css) . '</textarea>';
+        echo '<p class="description">Scoped to this embed. Use <code>.everxp-banner-insert</code> to target the wrapper, or any selector to style the embed content.</p>';
         echo '</td></tr>';
 
         echo '</tbody></table>';

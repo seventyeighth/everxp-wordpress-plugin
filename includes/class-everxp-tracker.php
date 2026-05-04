@@ -7,7 +7,7 @@ class EverXP_Tracker {
     private static $instance;
     private $wpdb;
 
-    const API_BASE_URL = 'http://localhost/everxp/everxp-api';
+    // API_BASE_URL is resolved at runtime via everxp_api_base_url() — do not hardcode localhost here.
 
     public function __construct() {
         global $wpdb;
@@ -56,7 +56,7 @@ class EverXP_Tracker {
         // Get and decrypt the API key from WordPress options
         $encrypted_api_key = get_option('everxp_api_key');
         $decrypted_api_key = EverXP_Encryption_Helper::decrypt($encrypted_api_key);
-        $api_url           = self::API_BASE_URL . '/logs/track_event';
+        $api_url           = everxp_api_base_url() . '/logs/track_event';
 
         //https://api.everxp.com/logs/track_event
         wp_localize_script('everxp-event-tracking', 'everxpTracker', [
@@ -294,7 +294,7 @@ class EverXP_Tracker {
         ];
 
         // Send to EverXP API (use wp_remote_post)
-        $api_url = self::API_BASE_URL . '/logs/track_event';
+        $api_url = everxp_api_base_url() . '/logs/track_event';
         $api_key = EverXP_Encryption_Helper::decrypt(get_option('everxp_api_key'));
 
         wp_remote_post($api_url, [
