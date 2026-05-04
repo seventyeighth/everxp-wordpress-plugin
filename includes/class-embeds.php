@@ -275,7 +275,7 @@ class EverXP_Embeds {
       return el;
     }
     function getItems(grid){
-      var items = qsa(':scope > li.wc-block-product, :scope > li.wc-block-grid__product, :scope > li.product, :scope > li', grid)
+      var items = qsa(':scope > li.wc-block-product, :scope > li.wc-block-grid__product, :scope > li.product, :scope > li, :scope > .e-loop-item', grid)
         .filter(function(n){ return isEl(n) && !n.classList.contains('everxp-banner-insert'); });
       return items;
     }
@@ -320,6 +320,10 @@ class EverXP_Embeds {
       c=c.concat(qsa('ul.products'));
       c=c.concat(qsa('.wp-block-woocommerce-product-template ul.wc-block-product-template'));
       c=c.concat(qsa('.wp-block-woocommerce-all-products ul, .wp-block-woocommerce-product-collection ul'));
+      // Elementor Loop Grid: collect unique parent containers of .e-loop-item elements
+      qsa('.e-loop-item').forEach(function(item){
+        if (item.parentNode && item.parentNode.nodeType===1) c.push(item.parentNode);
+      });
       var seen=new Set(), u=[]; c.forEach(function(g){ if (g && !seen.has(g)){ seen.add(g); u.push(g);} });
       return u;
     }
