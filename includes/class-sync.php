@@ -130,8 +130,8 @@ class EverXP_Sync {
             wp_die('You do not have sufficient permissions to access this page.');
         }
 
-        // API endpoint for syncing data
-        $url = 'https://api.everxp.com/v2/request';
+        // API endpoint for syncing data (auto-switches between localhost and production)
+        $url = everxp_api_base_url() . '/v2/request';
 
 
         // Make the API request
@@ -151,7 +151,35 @@ class EverXP_Sync {
             return ['success' => false, 'message' => 'Request failed: ' . $response->get_error_message()];
         }
 
-        $insert_data = json_decode(wp_remote_retrieve_body($response), true);
+        $http_code = wp_remote_retrieve_response_code($response);
+        $body      = wp_remote_retrieve_body($response);
+
+        // Strip any PHP notices/warnings printed before the JSON (common with CI3 on PHP 8.x)
+        $first_json = PHP_INT_MAX;
+        foreach (['{', '['] as $char) {
+            $pos = strpos($body, $char);
+            if ($pos !== false && $pos < $first_json) {
+                $first_json = $pos;
+            }
+        }
+        $json_body   = ($first_json !== PHP_INT_MAX) ? substr($body, $first_json) : $body;
+        $insert_data = json_decode($json_body, true);
+
+        // Surface real API errors before checking data structure
+        if ($http_code === 401 || $http_code === 403) {
+            return ['success' => false, 'message' => 'API key rejected (HTTP ' . $http_code . '). Please reconnect your API key in Settings.'];
+        }
+        if ($http_code !== 200) {
+            $api_msg = is_array($insert_data) ? ($insert_data['message'] ?? $insert_data['error'] ?? $body) : $body;
+            return ['success' => false, 'message' => 'API returned HTTP ' . $http_code . ': ' . wp_strip_all_tags((string)$api_msg)];
+        }
+        if (!is_array($insert_data)) {
+            return ['success' => false, 'message' => 'API returned an unreadable response. Raw: ' . wp_strip_all_tags(substr($body, 0, 300))];
+        }
+        if (isset($insert_data['message']) && empty($insert_data['api_endpoint_headings'])) {
+            return ['success' => false, 'message' => 'API error: ' . esc_html($insert_data['message'])];
+        }
+
         return self::everxp_insert_data($insert_data);
     }
 

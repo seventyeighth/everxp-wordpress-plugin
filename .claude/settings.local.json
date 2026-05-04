@@ -4,7 +4,15 @@
       "Bash(Get-ChildItem -Path \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\wordpress\\\\wp-content\\\\plugins\\\\everxp-wordpress-plugin\" -Recurse -Name)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\wordpress\\\\wp-content\\\\plugins\\\\everxp-wordpress-plugin\" -Recurse | Select-Object FullName | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\wordpress\\\\wp-content\\\\plugins\\\\everxp-wordpress-plugin\\\\\"\\), \"\" } | Sort-Object)",
       "Bash(Get-ChildItem -Path \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\wordpress\\\\wp-content\\\\plugins\\\\everxp-wordpress-plugin\\\\includes\" -Name)",
-      "Bash(Sort-Object)"
+      "Bash(Sort-Object)",
+      "Read(//c/MAMP/**)",
+      "Bash(dir \"C:\\\\MAMP\")",
+      "Bash(grep -E \"\\\\.dll$|apache\")",
+      "Read(//c/Users/iluza/AppData/Roaming/**)",
+      "Read(//c/Users/iluza/AppData/Local/**)",
+      "Read(//c/ProgramData/**)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\iluza\\\\AppData\" -Recurse -Filter \"*mamp*\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

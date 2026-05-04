@@ -23,9 +23,8 @@ class EverXP_Cron {
             return; // No logs to sync
         }
 
-        // Prepare data for API
-		//$api_url           = 'https://api.everxp.com/logs/sync_logs';
-        $api_url           = 'http://localhost/everxp/everxp-api/logs/sync_logs';
+        // API endpoint (auto-switches between localhost and production)
+        $api_url = everxp_api_base_url() . '/logs/sync_logs';
 		$api_key           = get_option('everxp_api_key');
 		$decrypted_api_key = EverXP_Encryption_Helper::decrypt($api_key);
         if (!$decrypted_api_key) {

@@ -31,8 +31,8 @@ add_action('plugins_loaded', function () {
     EverXP_Tracker::init();
     EverXP_Embeds::init();
 
-    // Run DB migrations on install or version upgrade (fires on update, not just activation)
-    if (get_option('everxp_db_version') !== EVERXP_DB_VERSION) {
+    // Run DB migrations on install or version upgrade — admin-only to avoid loading upgrade.php on the frontend
+    if (is_admin() && get_option('everxp_db_version') !== EVERXP_DB_VERSION) {
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         everxp_create_custom_tables();
         EverXP_Embeds::maybe_create_table();
@@ -281,5 +281,13 @@ if (!function_exists('everxp_check_domain')) {
     }
     function everxp_check_domain(): string {
         return EverXP_Domain_Check::get_domain();
+    }
+}
+
+if (!function_exists('everxp_api_base_url')) {
+    function everxp_api_base_url(): string {
+        return everxp_check_domain() === 'localhost'
+            ? 'http://localhost/everxp/everxp-api'
+            : 'https://api.everxp.com';
     }
 }
