@@ -139,23 +139,22 @@ class EverXP_Embeds {
                 $placement = (string)($e['placement'] ?? '');
                 if (!$placement || $placement === 'manual') { continue; }
 
-                // Route shop-grid per-item placements to JS
+                // Route shop-grid per-item placements to JS (only when loop is configured)
                 if (in_array($placement, $js_shop_hooks, true)) {
-                    if (self::passes_scope($e) && self::passes_conditions($e)) {
-                        $loop = self::get_loop_settings($e);
-                        if ($loop['enabled']) {
-                            $js_payloads[] = [
-                                'id'         => (int)$e['id'],
-                                'html'       => self::render($e), // pre-rendered HTML
-                                'mode'       => $loop['mode'],    // fixed|random
-                                'every'      => (int)$loop['every_items'],
-                                'perRow'     => (int)$loop['per_row'],
-                                'minRows'    => (int)$loop['min_rows'],
-                                'maxRows'    => (int)$loop['max_rows'],
-                            ];
-                        }
+                    $loop = self::get_loop_settings($e);
+                    if ($loop['enabled'] && self::passes_scope($e) && self::passes_conditions($e)) {
+                        $js_payloads[] = [
+                            'id'         => (int)$e['id'],
+                            'html'       => self::render($e), // pre-rendered HTML
+                            'mode'       => $loop['mode'],    // fixed|random
+                            'every'      => (int)$loop['every_items'],
+                            'perRow'     => (int)$loop['per_row'],
+                            'minRows'    => (int)$loop['min_rows'],
+                            'maxRows'    => (int)$loop['max_rows'],
+                        ];
+                        continue; // handled via JS; skip PHP hook
                     }
-                    continue;
+                    // loop disabled → fall through to PHP hook registration below
                 }
 
                 // Everything else stays with PHP hooks
@@ -688,7 +687,25 @@ class EverXP_Embeds {
 
         $payload = '';
         if ($type === 'shortcode') {
-            $payload = trim((string)wp_unslash($_POST['payload_shortcode'] ?? ''));
+            $source = sanitize_text_field($_POST['shortcode_source'] ?? 'custom');
+            if ($source === 'everxp') {
+                $sc_folder = absint($_POST['everxp_folder_id'] ?? 0);
+                $sc_var    = ($_POST['everxp_variant'] ?? 'single') === 'multiple' ? 'multiple' : 'single';
+                $sc_lang   = sanitize_key($_POST['everxp_lang'] ?? 'en') ?: 'en';
+                $sc_style  = max(1, absint($_POST['everxp_style'] ?? 1));
+                $sc_min_l  = absint($_POST['everxp_min_l'] ?? 0);
+                $sc_max_l  = absint($_POST['everxp_max_l'] ?? 0);
+                $sc_limit  = max(1, absint($_POST['everxp_limit'] ?? 5));
+                $sc_sep    = sanitize_text_field(wp_unslash($_POST['everxp_separator'] ?? ' | '));
+                $tag       = $sc_var === 'multiple' ? 'everxp_shortcode_multiple' : 'everxp_shortcode';
+                $payload   = '[' . $tag . ' folder_id="' . $sc_folder . '" lang="' . $sc_lang . '" style="' . $sc_style . '"';
+                if ($sc_min_l > 0) { $payload .= ' min_l="' . $sc_min_l . '"'; }
+                if ($sc_max_l > 0) { $payload .= ' max_l="' . $sc_max_l . '"'; }
+                if ($sc_var === 'multiple') { $payload .= ' limit="' . $sc_limit . '" separator="' . esc_attr($sc_sep) . '"'; }
+                $payload  .= ']';
+            } else {
+                $payload = trim((string)wp_unslash($_POST['payload_shortcode'] ?? ''));
+            }
         } elseif ($type === 'script') {
             $payload = esc_url_raw(trim((string)($_POST['payload_script'] ?? '')));
         } elseif ($type === 'html') {
@@ -799,6 +816,7 @@ class EverXP_Embeds {
  * $mode: 'create'|'update'
  */
     private static function render_form(?array $row, string $mode = 'create'): void {
+        global $wpdb;
         $is_edit = ($mode === 'update');
         $id      = $row['id'] ?? 0;
         $name    = $row['name'] ?? '';
@@ -851,6 +869,23 @@ class EverXP_Embeds {
         $max_rows    = (int)($loop['max_rows']    ?? max($min_rows, 2));
         $wrapper     = $loop['wrapper']     ?? 'none';
 
+        // Bank picker: parse existing EverXP payload, fetch active banks
+        $everxp_sc    = ($type === 'shortcode') ? self::parse_everxp_shortcode($payload) : null;
+        $sc_source    = $everxp_sc ? 'everxp' : ($payload ? 'custom' : 'everxp');
+        $sc_variant   = $everxp_sc['variant']   ?? 'single';
+        $sc_folder_id = $everxp_sc['folder_id'] ?? 0;
+        $sc_lang      = $everxp_sc['lang']      ?? 'en';
+        $sc_style     = $everxp_sc['style']     ?? 1;
+        $sc_min_l     = $everxp_sc['min_l']     ?? 0;
+        $sc_max_l     = $everxp_sc['max_l']     ?? 0;
+        $sc_limit     = $everxp_sc['limit']     ?? 5;
+        $sc_separator = $everxp_sc['separator'] ?? ' | ';
+        $banks        = $wpdb->get_results(
+            "SELECT id, name FROM {$wpdb->prefix}user_banks WHERE active = 1 ORDER BY name ASC",
+            ARRAY_A
+        ) ?: [];
+        $sync_url = admin_url('admin.php?page=everxp-sync');
+
         // Known placements; anything else is treated as custom
         $known = [
             'before_content','after_content','wp_head','wp_footer','manual',
@@ -886,21 +921,92 @@ class EverXP_Embeds {
                         <option value="script" '    . selected($type,'script',false)    . '>Script URL</option>
                         <option value="html" '      . selected($type,'html',false)      . '>HTML snippet</option>
                     </select>
-                    <p class="description">Shortcode: <code>[vendor_widget id="123"]</code> · Script URL: a JS file URL · HTML: full embed code.</p>
                 </td></tr>';
 
-        // Payloads
+        // ── Shortcode row: bank picker + custom fallback ──────────────────────
         echo '<tr class="payload payload-shortcode" ' . ($type==='shortcode'?'':'style="display:none"') . '>
-                <th scope="row"><label for="payload_shortcode">Shortcode</label></th>
-                <td><input name="payload_shortcode" id="payload_shortcode" type="text" class="regular-text" value="' . esc_attr($type==='shortcode'?$payload:'') . '" placeholder=\'[vendor_widget id="123"]\'></td></tr>';
+                <th scope="row">Content</th><td>';
 
+        // Source toggle
+        echo '<div style="margin-bottom:14px;">
+                <label style="margin-right:24px;font-weight:600;">
+                    <input type="radio" name="shortcode_source" value="everxp" ' . checked($sc_source,'everxp',false) . '>
+                    &nbsp;EverXP Bank <span style="font-weight:400;color:#666;">— pick from your content banks</span>
+                </label>
+                <label style="font-weight:600;">
+                    <input type="radio" name="shortcode_source" value="custom" ' . checked($sc_source,'custom',false) . '>
+                    &nbsp;Custom shortcode <span style="font-weight:400;color:#666;">— enter manually</span>
+                </label>
+              </div>';
+
+        // ── EverXP Bank section ───────────────────────────────────────────────
+        echo '<div id="everxp-bank-section" style="background:#f6f9fc;border:1px solid #c5d9e8;border-radius:5px;padding:18px 20px;' . ($sc_source==='everxp'?'':'display:none;') . '">';
+
+        // Bank dropdown
+        echo '<table style="border-collapse:collapse;width:100%;"><tbody>';
+        echo '<tr><td style="padding:6px 16px 6px 0;white-space:nowrap;vertical-align:top;padding-top:10px;"><strong>Content bank</strong></td><td style="width:100%;">';
+        if (empty($banks)) {
+            echo '<p style="margin:0;color:#888;"><em>No banks found.</em> <a href="' . esc_url($sync_url) . '">Sync your data first →</a></p>';
+        } else {
+            echo '<select name="everxp_folder_id" id="everxp-folder-id" style="width:100%;max-width:360px;">';
+            echo '<option value="">— Select a bank —</option>';
+            foreach ($banks as $b) {
+                echo '<option value="' . esc_attr($b['id']) . '" ' . selected($sc_folder_id,(int)$b['id'],false) . '>'
+                   . esc_html($b['name']) . ' &nbsp;(ID: ' . esc_html($b['id']) . ')</option>';
+            }
+            echo '</select>';
+        }
+        echo '</td></tr>';
+
+        // Variant
+        echo '<tr><td style="padding:6px 16px 6px 0;white-space:nowrap;vertical-align:middle;"><strong>Display type</strong></td><td>';
+        echo '<label style="margin-right:20px;"><input type="radio" name="everxp_variant" value="single" ' . checked($sc_variant,'single',false) . '> Single heading</label>';
+        echo '<label><input type="radio" name="everxp_variant" value="multiple" ' . checked($sc_variant,'multiple',false) . '> Multiple headings</label>';
+        echo '</td></tr>';
+
+        // Options row
+        echo '<tr><td style="padding:6px 16px 6px 0;white-space:nowrap;vertical-align:top;padding-top:10px;"><strong>Options</strong></td><td>';
+        echo '<div style="display:flex;flex-wrap:wrap;gap:14px;">';
+        echo '<label>Language<br><input type="text" name="everxp_lang" value="' . esc_attr($sc_lang) . '" style="width:72px;" placeholder="en"></label>';
+        echo '<label>Style<br><input type="number" name="everxp_style" value="' . esc_attr((string)$sc_style) . '" min="1" style="width:72px;"></label>';
+        echo '<label>Min length<br><input type="number" name="everxp_min_l" value="' . esc_attr((string)$sc_min_l) . '" min="0" style="width:90px;" placeholder="0 = any"></label>';
+        echo '<label>Max length<br><input type="number" name="everxp_max_l" value="' . esc_attr((string)$sc_max_l) . '" min="0" style="width:90px;" placeholder="0 = any"></label>';
+        echo '</div></td></tr>';
+
+        // Multiple-only options
+        echo '<tr id="everxp-multiple-options" ' . ($sc_variant==='multiple'?'':'style="display:none"') . '>';
+        echo '<td style="padding:6px 16px 6px 0;white-space:nowrap;vertical-align:top;padding-top:10px;"><strong>Multiple options</strong></td><td>';
+        echo '<div style="display:flex;flex-wrap:wrap;gap:14px;">';
+        echo '<label>Show up to<br><input type="number" name="everxp_limit" value="' . esc_attr((string)$sc_limit) . '" min="1" style="width:72px;"> headings</label>';
+        echo '<label>Separator<br><input type="text" name="everxp_separator" value="' . esc_attr($sc_separator) . '" style="width:100px;"></label>';
+        echo '</div></td></tr>';
+
+        // Live preview
+        echo '<tr><td style="padding:10px 16px 0 0;white-space:nowrap;vertical-align:middle;"><strong>Preview</strong></td><td style="padding-top:10px;">';
+        echo '<code id="everxp-sc-preview" style="display:inline-block;background:#fff;border:1px solid #ddd;border-radius:3px;padding:6px 10px;font-size:12px;color:#0073aa;word-break:break-all;min-width:200px;">— select a bank —</code>';
+        echo '</td></tr>';
+
+        echo '</tbody></table>';
+        echo '</div>'; // end #everxp-bank-section
+
+        // ── Custom shortcode section ──────────────────────────────────────────
+        echo '<div id="everxp-custom-section" ' . ($sc_source==='custom'?'':'style="display:none"') . '>';
+        echo '<input type="text" name="payload_shortcode" class="large-text" value="'
+           . esc_attr($sc_source === 'custom' ? $payload : '') . '" placeholder=\'[my_plugin_shortcode id="123"]\'>';
+        echo '<p class="description">Enter the full shortcode tag including brackets.</p>';
+        echo '</div>';
+
+        echo '</td></tr>';
+
+        // Script URL row
         echo '<tr class="payload payload-script" ' . ($type==='script'?'':'style="display:none"') . '>
                 <th scope="row"><label for="payload_script">Script URL</label></th>
                 <td><input name="payload_script" id="payload_script" type="url" class="regular-text" value="' . esc_attr($type==='script'?$payload:'') . '" placeholder="https://cdn.example.com/widget.js"></td></tr>';
 
+        // HTML row
         echo '<tr class="payload payload-html" ' . ($type==='html'?'':'style="display:none"') . '>
                 <th scope="row"><label for="payload_html">HTML / JS embed</label></th>
-                <td><textarea name="payload_html" id="payload_html" class="large-text code" rows="6" placeholder="<div id=\'x\'></div><script>/* vendor embed */</script>">' . ($type==='html'?esc_textarea($payload):'') . '</textarea></td></tr>';
+                <td><textarea name="payload_html" id="payload_html" class="large-text code" rows="6">' . ($type==='html'?esc_textarea($payload):'') . '</textarea></td></tr>';
 
         // ===== PLACEMENT (FULL) =====
         echo '<tr><th scope="row"><label for="everxp-placement">Placement</label></th><td>';
@@ -978,8 +1084,15 @@ class EverXP_Embeds {
 
         echo '</td></tr>';
 
-        // ---------------- Display Conditions ----------------
-        echo '<tr><th scope="row">Where should it appear?</th><td>';
+        // ---------------- Display Conditions (collapsible) ----------------
+        $has_conditions = !empty($post_types) || !empty($locations) || !empty($wc_pages)
+            || !empty($inc_cats) || !empty($exc_cats) || !empty($inc_tags) || !empty($exc_tags)
+            || !empty($inc_ids) || !empty($exc_ids) || $user_state !== 'any' || !empty($roles)
+            || !empty($devices) || !empty($languages);
+        echo '<tr><th scope="row">Display rules</th><td>';
+        echo '<button type="button" id="everxp-cond-toggle" class="button" style="margin-bottom:10px;">'
+           . ($has_conditions ? 'Edit display rules ▲' : 'Add display rules ▼') . '</button>';
+        echo '<div id="everxp-cond-body" ' . ($has_conditions ? '' : 'style="display:none"') . '>';
 
         // Content Types
         $pts = get_post_types(['public' => true], 'objects');
@@ -1055,6 +1168,7 @@ class EverXP_Embeds {
         echo '<label>Only show for languages (codes, comma-separated): <input type="text" name="cond_languages" class="regular-text" value="' . esc_attr(implode(',', $languages)) . '" placeholder="en, he, fr"></label>';
         echo '<p class="description">WPML uses ICL_LANGUAGE_CODE; Polylang uses <code>pll_current_language()</code>.</p></fieldset>';
 
+        echo '</div>'; // end #everxp-cond-body
         echo '</td></tr>';
 
         // -------- Loop options (for repeating hooks) --------
@@ -1110,34 +1224,101 @@ class EverXP_Embeds {
         }
         echo '</p>';
 
-        // Minimal JS to keep WP look; no CSS changes
         echo '<script>(function(){
-            const typeSel=document.getElementById("everxp-type");
-            const rows={shortcode:document.querySelector(".payload-shortcode"),script:document.querySelector(".payload-script"),html:document.querySelector(".payload-html")};
-            function refreshPayload(){Object.keys(rows).forEach(k=>rows[k].style.display="none");const v=typeSel.value;if(rows[v])rows[v].style.display="";}
-            if(typeSel){typeSel.addEventListener("change",refreshPayload);refreshPayload();}
+            /* ── Type selector ── */
+            var typeSel=document.getElementById("everxp-type");
+            var payloadRows={shortcode:document.querySelector(".payload-shortcode"),script:document.querySelector(".payload-script"),html:document.querySelector(".payload-html")};
+            function refreshType(){
+                Object.keys(payloadRows).forEach(function(k){if(payloadRows[k])payloadRows[k].style.display="none";});
+                var v=typeSel?typeSel.value:"";
+                if(payloadRows[v])payloadRows[v].style.display="";
+            }
+            if(typeSel){typeSel.addEventListener("change",refreshType);refreshType();}
 
-            const placeSel=document.getElementById("everxp-placement");
-            const customWrap=document.getElementById("everxp-custom-hook-wrap");
-            const customInput=document.getElementById("everxp-custom-hook");
-            const known=new Set(' . json_encode($known) . ');
+            /* ── Source toggle (EverXP Bank vs Custom) ── */
+            var bankSec=document.getElementById("everxp-bank-section");
+            var custSec=document.getElementById("everxp-custom-section");
+            function refreshSource(){
+                var sel=document.querySelector("input[name=shortcode_source]:checked");
+                var isEverxp=sel&&sel.value==="everxp";
+                if(bankSec)bankSec.style.display=isEverxp?"":"none";
+                if(custSec)custSec.style.display=isEverxp?"none":"";
+            }
+            document.querySelectorAll("input[name=shortcode_source]").forEach(function(r){r.addEventListener("change",refreshSource);});
+            refreshSource();
+
+            /* ── Variant toggle (single vs multiple) ── */
+            var multiOpts=document.getElementById("everxp-multiple-options");
+            function refreshVariant(){
+                var sel=document.querySelector("input[name=everxp_variant]:checked");
+                if(multiOpts)multiOpts.style.display=(sel&&sel.value==="multiple")?"":"none";
+                updatePreview();
+            }
+            document.querySelectorAll("input[name=everxp_variant]").forEach(function(r){r.addEventListener("change",refreshVariant);});
+
+            /* ── Live shortcode preview ── */
+            var preview=document.getElementById("everxp-sc-preview");
+            function val(name){var el=document.querySelector("[name="+name+"]");return el?el.value:"";}
+            function updatePreview(){
+                if(!preview)return;
+                var folder=val("everxp_folder_id");
+                if(!folder){preview.textContent="— select a bank to preview —";return;}
+                var variant=(document.querySelector("input[name=everxp_variant]:checked")||{}).value||"single";
+                var lang=val("everxp_lang")||"en";
+                var style=val("everxp_style")||"1";
+                var min_l=parseInt(val("everxp_min_l")||"0");
+                var max_l=parseInt(val("everxp_max_l")||"0");
+                var limit=val("everxp_limit")||"5";
+                var sep=val("everxp_separator")||" | ";
+                var tag=variant==="multiple"?"everxp_shortcode_multiple":"everxp_shortcode";
+                var sc="["+tag+" folder_id=\""+folder+"\" lang=\""+lang+"\" style=\""+style+"\"";
+                if(min_l>0)sc+=" min_l=\""+min_l+"\"";
+                if(max_l>0)sc+=" max_l=\""+max_l+"\"";
+                if(variant==="multiple")sc+=" limit=\""+limit+"\" separator=\""+sep+"\"";
+                sc+="]";
+                preview.textContent=sc;
+            }
+            ["everxp_folder_id","everxp_lang","everxp_style","everxp_min_l","everxp_max_l","everxp_limit","everxp_separator"].forEach(function(n){
+                var el=document.querySelector("[name="+n+"]");
+                if(el){el.addEventListener("input",updatePreview);el.addEventListener("change",updatePreview);}
+            });
+            updatePreview();refreshVariant();
+
+            /* ── Placement selector ── */
+            var placeSel=document.getElementById("everxp-placement");
+            var customWrap=document.getElementById("everxp-custom-hook-wrap");
+            var customInput=document.getElementById("everxp-custom-hook");
+            var known=new Set(' . json_encode($known) . ');
             function refreshPlacement(){
-                const v=placeSel.value;
-                const isCustom=(v==="custom_hook")||(v && !known.has(v));
-                customWrap.style.display=isCustom?"":"none";
-                if(!isCustom && customInput){customInput.value="";}
+                var v=placeSel?placeSel.value:"";
+                var isCustom=(v==="custom_hook")||(v&&!known.has(v));
+                if(customWrap)customWrap.style.display=isCustom?"":"none";
+                if(!isCustom&&customInput)customInput.value="";
             }
             if(placeSel){placeSel.addEventListener("change",refreshPlacement);refreshPlacement();}
 
-            const modeFixed=document.querySelector("input[name=loop_mode][value=fixed]");
-            const modeRandom=document.querySelector("input[name=loop_mode][value=random]");
-            const boxFixed=document.getElementById("everxp-loop-fixed");
-            const boxRandom=document.getElementById("everxp-loop-random");
+            /* ── Loop mode selector ── */
+            var modeFixed=document.querySelector("input[name=loop_mode][value=fixed]");
+            var modeRandom=document.querySelector("input[name=loop_mode][value=random]");
+            var boxFixed=document.getElementById("everxp-loop-fixed");
+            var boxRandom=document.getElementById("everxp-loop-random");
             function refreshLoop(){
-                if(modeFixed && modeFixed.checked){boxFixed.style.display="";boxRandom.style.display="none";}
-                if(modeRandom && modeRandom.checked){boxFixed.style.display="none";boxRandom.style.display="";}
+                if(modeFixed&&modeFixed.checked){if(boxFixed)boxFixed.style.display="";if(boxRandom)boxRandom.style.display="none";}
+                if(modeRandom&&modeRandom.checked){if(boxFixed)boxFixed.style.display="none";if(boxRandom)boxRandom.style.display="";}
             }
-            if(modeFixed && modeRandom){modeFixed.addEventListener("change",refreshLoop);modeRandom.addEventListener("change",refreshLoop);refreshLoop();}
+            if(modeFixed&&modeRandom){modeFixed.addEventListener("change",refreshLoop);modeRandom.addEventListener("change",refreshLoop);refreshLoop();}
+
+            /* ── Conditions collapsible ── */
+            var condToggle=document.getElementById("everxp-cond-toggle");
+            var condBody=document.getElementById("everxp-cond-body");
+            if(condToggle&&condBody){
+                condToggle.addEventListener("click",function(e){
+                    e.preventDefault();
+                    var open=condBody.style.display!=="none";
+                    condBody.style.display=open?"none":"";
+                    condToggle.textContent=open?"Add display rules ▼":"Edit display rules ▲";
+                });
+            }
         })();</script>';
 
         echo '</form>';
@@ -1146,6 +1327,37 @@ class EverXP_Embeds {
     // ---------- helpers ----------
     private static function get_active_embeds(): array {
         global $wpdb;
+        if (empty(self::$table)) { self::$table = $wpdb->prefix . 'everxp_embeds'; }
+
+        // Create the table if it doesn't exist yet (safe on frontend — no upgrade.php needed)
+        static $bootstrapped = false;
+        if (!$bootstrapped) {
+            $bootstrapped = true;
+            $exists = (bool) $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", self::$table));
+            if (!$exists) {
+                $charset = $wpdb->get_charset_collate();
+                $wpdb->query("CREATE TABLE IF NOT EXISTS `" . self::$table . "` (
+                    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    name VARCHAR(191) NOT NULL,
+                    type VARCHAR(20) NOT NULL,
+                    payload LONGTEXT NOT NULL,
+                    placement VARCHAR(191) NOT NULL DEFAULT 'manual',
+                    scope VARCHAR(50) NOT NULL DEFAULT 'sitewide',
+                    priority INT NOT NULL DEFAULT 10,
+                    conditions LONGTEXT NULL,
+                    loop_every INT NOT NULL DEFAULT 0,
+                    loop_rows INT NOT NULL DEFAULT 0,
+                    loop_cols_override INT NOT NULL DEFAULT 0,
+                    wrap_shop_banner TINYINT(1) NOT NULL DEFAULT 0,
+                    active TINYINT(1) NOT NULL DEFAULT 1,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY placement (placement),
+                    KEY active (active)
+                ) $charset");
+            }
+        }
+
         $rows = $wpdb->get_results("SELECT * FROM " . self::$table . " WHERE active = 1 ORDER BY id ASC", ARRAY_A);
         return is_array($rows) ? $rows : [];
     }
@@ -1297,6 +1509,27 @@ class EverXP_Embeds {
         }
         if ($type === 'html') { return $payload; }
         return '';
+    }
+
+    private static function parse_everxp_shortcode(string $payload): ?array {
+        if (!preg_match('/^\[(everxp_shortcode(_multiple)?)\s*(.*?)\s*\]$/', trim($payload), $m)) {
+            return null;
+        }
+        $attrs = [];
+        if (!empty($m[3])) {
+            preg_match_all('/(\w+)="([^"]*)"/', $m[3], $pairs, PREG_SET_ORDER);
+            foreach ($pairs as $p) { $attrs[$p[1]] = $p[2]; }
+        }
+        return [
+            'variant'   => !empty($m[2]) ? 'multiple' : 'single',
+            'folder_id' => (int)($attrs['folder_id'] ?? 0),
+            'lang'      => $attrs['lang']      ?? 'en',
+            'style'     => (int)($attrs['style'] ?? 1),
+            'min_l'     => (int)($attrs['min_l'] ?? 0),
+            'max_l'     => (int)($attrs['max_l'] ?? 0),
+            'limit'     => (int)($attrs['limit'] ?? 5),
+            'separator' => $attrs['separator'] ?? ' | ',
+        ];
     }
 
     private static function human_placement(string $p): string {

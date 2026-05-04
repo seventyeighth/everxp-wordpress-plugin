@@ -2,12 +2,14 @@
 /*
 Plugin Name: EverXP
 Description: Provides API integration with shortcodes, Elementor widgets, and database sync.
-Version: 3.7
+Version: 3.8
 Author: EverXP.com
 License: GNU General Public License v2 or later
 */
 
 defined('ABSPATH') || exit;
+
+define('EVERXP_DB_VERSION', '3.8');
 
 // Include required files
 require_once plugin_dir_path(__FILE__) . 'includes/class-api.php';
@@ -28,6 +30,14 @@ add_action('plugins_loaded', function () {
     EverXP_Settings::init();
     EverXP_Tracker::init();
     EverXP_Embeds::init();
+
+    // Run DB migrations on install or version upgrade (fires on update, not just activation)
+    if (get_option('everxp_db_version') !== EVERXP_DB_VERSION) {
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        everxp_create_custom_tables();
+        EverXP_Embeds::maybe_create_table();
+        update_option('everxp_db_version', EVERXP_DB_VERSION);
+    }
 });
 
 
