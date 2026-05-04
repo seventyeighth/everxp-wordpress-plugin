@@ -152,12 +152,7 @@ class EverXP_Sync {
         }
 
         $insert_data = json_decode(wp_remote_retrieve_body($response), true);
-        // Save the synced data to the WordPress database
-        self::everxp_insert_data($insert_data);
-        return ['success' => true];
-
-
-        return ['success' => false, 'message' => $data['message'] ?? 'Unknown error'];
+        return self::everxp_insert_data($insert_data);
     }
 
     public static function sync_logs_manually() {
@@ -177,7 +172,7 @@ class EverXP_Sync {
     }
 
 
-    private static function everxp_insert_data($data) 
+    private static function everxp_insert_data($data): array
     {
         global $wpdb;
 
@@ -275,10 +270,9 @@ class EverXP_Sync {
             $wpdb->query('COMMIT');
 
         } catch (Exception $e) {
-            // Rollback the transaction in case of error
             $wpdb->query('ROLLBACK');
-            echo '<div class="error"><p>' . esc_html($e->getMessage()) . '</p></div>';
             error_log('Error during data sync: ' . $e->getMessage());
+            return ['success' => false, 'message' => $e->getMessage()];
         }
 
 
@@ -303,6 +297,8 @@ class EverXP_Sync {
         if ($wpdb->last_error) {
             error_log('Database Insert Error: ' . $wpdb->last_error);
         }
+
+        return ['success' => true];
     }
 
 
