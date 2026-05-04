@@ -1158,7 +1158,7 @@ class EverXP_Embeds {
         echo '<label>Exclude categories (IDs or slugs, comma-separated): <input type="text" name="cond_exclude_categories" class="regular-text" value="' . esc_attr(implode(',', $exc_cats)) . '" placeholder="sponsored, 34"></label><br>';
         echo '<label>Include tags (IDs or slugs, comma-separated): <input type="text" name="cond_include_tags" class="regular-text" value="' . esc_attr(implode(',', $inc_tags)) . '" placeholder="summer, 77"></label><br>';
         echo '<label>Exclude tags (IDs or slugs, comma-separated): <input type="text" name="cond_exclude_tags" class="regular-text" value="' . esc_attr(implode(',', $exc_tags)) . '" placeholder="beta"></label>';
-        echo '<p class="description">Only checked on single posts.</p></fieldset>';
+        echo '<p class="description">Works on single posts/products and on category/product-category archive pages.</p></fieldset>';
 
         // IDs include/exclude
         echo '<fieldset style="margin-bottom:10px;"><legend><strong>Specific items</strong></legend>';
@@ -1452,12 +1452,27 @@ class EverXP_Embeds {
         $exc_ids = $c['exclude_ids'] ?? [];
         if ($exc_ids && $qid && in_array((int)$qid, array_map('intval',$exc_ids), true)) { return false; }
 
-        // Categories/Tags (singular posts/pages)
+        // Categories/Tags
         if (is_singular()) {
-            if (!empty($c['include_categories']) && !self::post_in_terms($qid, 'category', $c['include_categories'])) { return false; }
-            if (!empty($c['exclude_categories']) && self::post_in_terms($qid, 'category', $c['exclude_categories'])) { return false; }
+            // Singular posts: match against the post's own categories/tags
+            $cat_tax = function_exists('is_product') && is_product() ? 'product_cat' : 'category';
+            if (!empty($c['include_categories']) && !self::post_in_terms($qid, $cat_tax, $c['include_categories'])) { return false; }
+            if (!empty($c['exclude_categories']) && self::post_in_terms($qid, $cat_tax, $c['exclude_categories'])) { return false; }
             if (!empty($c['include_tags']) && !self::post_in_terms($qid, 'post_tag', $c['include_tags'])) { return false; }
             if (!empty($c['exclude_tags']) && self::post_in_terms($qid, 'post_tag', $c['exclude_tags'])) { return false; }
+        } elseif (is_tax() || is_category() || is_tag()) {
+            // Taxonomy archives (product_cat, category, tag, etc.): match against the queried term
+            $term = get_queried_object();
+            if ($term instanceof WP_Term) {
+                if (in_array($term->taxonomy, ['category', 'product_cat'], true)) {
+                    if (!empty($c['include_categories']) && !self::term_in_list($term, $c['include_categories'])) { return false; }
+                    if (!empty($c['exclude_categories']) && self::term_in_list($term, $c['exclude_categories'])) { return false; }
+                }
+                if ($term->taxonomy === 'post_tag') {
+                    if (!empty($c['include_tags']) && !self::term_in_list($term, $c['include_tags'])) { return false; }
+                    if (!empty($c['exclude_tags']) && self::term_in_list($term, $c['exclude_tags'])) { return false; }
+                }
+            }
         }
 
         // Users
@@ -1509,11 +1524,18 @@ class EverXP_Embeds {
 
     private static function post_in_terms(int $post_id, string $taxonomy, array $terms): bool {
         if (!$post_id) { return false; }
-        // Accept IDs or slugs
         $ids = []; $slugs = [];
         foreach ($terms as $t) { if (is_numeric($t)) { $ids[] = (int)$t; } else { $slugs[] = sanitize_title($t); } }
         if ($ids && has_term($ids, $taxonomy, $post_id)) { return true; }
         if ($slugs && has_term($slugs, $taxonomy, $post_id)) { return true; }
+        return false;
+    }
+
+    private static function term_in_list(WP_Term $term, array $list): bool {
+        foreach ($list as $t) {
+            if (is_numeric($t) && (int)$t === $term->term_id) { return true; }
+            if (!is_numeric($t) && sanitize_title((string)$t) === $term->slug) { return true; }
+        }
         return false;
     }
 
