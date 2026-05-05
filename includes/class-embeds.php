@@ -581,6 +581,26 @@ class EverXP_Embeds {
                     $wpdb->delete(self::$table, ['id' => $id], ['%d']);
                     $clean = remove_query_arg(['everxp_action','id','_wpnonce','updated','message']);
                     wp_safe_redirect($clean); exit;
+                } elseif ($action === 'duplicate') {
+                    $row = self::get($id);
+                    if ($row) {
+                        $wpdb->insert(self::$table, [
+                            'name'               => $row['name'] . ' (Copy)',
+                            'type'               => $row['type'],
+                            'payload'            => $row['payload'],
+                            'placement'          => $row['placement'],
+                            'scope'              => $row['scope'] ?? '',
+                            'priority'           => (int)($row['priority'] ?? 10),
+                            'conditions'         => $row['conditions'] ?? null,
+                            'loop_every'         => (int)($row['loop_every'] ?? 0),
+                            'loop_rows'          => (int)($row['loop_rows'] ?? 0),
+                            'loop_cols_override' => (int)($row['loop_cols_override'] ?? 0),
+                            'wrap_shop_banner'   => (int)($row['wrap_shop_banner'] ?? 0),
+                            'active'             => (int)($row['active'] ?? 1),
+                        ], ['%s','%s','%s','%s','%s','%d','%s','%d','%d','%d','%d','%d']);
+                    }
+                    $clean = remove_query_arg(['everxp_action','id','_wpnonce','updated','message']);
+                    wp_safe_redirect($clean); exit;
                 } /* edit falls through */
             } else {
                 echo '<div class="error"><p>Action not authorized.</p></div>';
@@ -622,9 +642,10 @@ class EverXP_Embeds {
 
         if ($embeds) {
             foreach ($embeds as $e) {
-                $toggle_url = wp_nonce_url(add_query_arg(['everxp_action' => 'toggle', 'id' => $e['id']]), 'everxp_action_' . $e['id']);
-                $delete_url = wp_nonce_url(add_query_arg(['everxp_action' => 'delete', 'id' => $e['id']]), 'everxp_action_' . $e['id']);
-                $edit_url   = wp_nonce_url(add_query_arg(['everxp_action' => 'edit',   'id' => $e['id']]),   'everxp_action_' . $e['id']);
+                $toggle_url    = wp_nonce_url(add_query_arg(['everxp_action' => 'toggle',    'id' => $e['id']]), 'everxp_action_' . $e['id']);
+                $delete_url    = wp_nonce_url(add_query_arg(['everxp_action' => 'delete',    'id' => $e['id']]), 'everxp_action_' . $e['id']);
+                $edit_url      = wp_nonce_url(add_query_arg(['everxp_action' => 'edit',      'id' => $e['id']]), 'everxp_action_' . $e['id']);
+                $duplicate_url = wp_nonce_url(add_query_arg(['everxp_action' => 'duplicate', 'id' => $e['id']]), 'everxp_action_' . $e['id']);
 
                 $placement = $e['placement'];
                 $is_content = in_array($placement, ['before_content','after_content','manual'], true);
@@ -659,6 +680,7 @@ class EverXP_Embeds {
                 echo '<td>
                         <span class="row-actions">
                             <a href="' . esc_url($edit_url) . '">Edit</a> |
+                            <a href="' . esc_url($duplicate_url) . '">Duplicate</a> |
                             <a href="' . esc_url($toggle_url) . '">' . (intval($e['active']) ? 'Deactivate' : 'Activate') . '</a> |
                             <a href="' . esc_url($delete_url) . '" class="submitdelete" onclick="return confirm(\'Delete this embed?\')">Delete</a>
                         </span>
