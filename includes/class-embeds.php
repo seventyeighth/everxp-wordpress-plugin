@@ -217,14 +217,16 @@ class EverXP_Embeds {
         $payload = [];
         foreach ($embeds as $e) {
             $payload[] = [
-                'id'      => (int)$e['id'],
-                'html'    => (string)$e['html'],
-                'mode'    => (string)$e['mode'],
-                'every'   => (int)$e['every'],
-                'perRow'  => (int)$e['perRow'],
-                'minRows' => (int)$e['minRows'],
-                'maxRows' => (int)$e['maxRows'],
-                'css'     => isset($e['css']) ? (string)$e['css'] : '',
+                'id'        => (int)$e['id'],
+                'html'      => (string)$e['html'],
+                'mode'      => (string)$e['mode'],
+                'every'     => (int)$e['every'],
+                'perRow'    => (int)$e['perRow'],
+                'minRows'   => (int)$e['minRows'],
+                'maxRows'   => (int)$e['maxRows'],
+                'positions' => (string)($e['positions'] ?? ''),
+                'maxShow'   => (int)($e['maxShow'] ?? 0),
+                'css'       => isset($e['css']) ? (string)$e['css'] : '',
             ];
         }
         $json = wp_json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
