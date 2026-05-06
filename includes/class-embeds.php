@@ -155,14 +155,16 @@ class EverXP_Embeds {
                     if ($loop['enabled'] && self::passes_scope($e) && self::passes_conditions($e)) {
                         $ec  = !empty($e['conditions']) ? (array)(json_decode($e['conditions'], true) ?: []) : [];
                         $js_payloads[] = [
-                            'id'         => (int)$e['id'],
-                            'html'       => self::render($e), // pre-rendered HTML
-                            'mode'       => $loop['mode'],    // fixed|random
-                            'every'      => (int)$loop['every_items'],
-                            'perRow'     => (int)$loop['per_row'],
-                            'minRows'    => (int)$loop['min_rows'],
-                            'maxRows'    => (int)$loop['max_rows'],
-                            'css'        => (string)($ec['custom_css'] ?? ''),
+                            'id'        => (int)$e['id'],
+                            'html'      => self::render($e),
+                            'mode'      => $loop['mode'],
+                            'every'     => (int)$loop['every_items'],
+                            'perRow'    => (int)$loop['per_row'],
+                            'minRows'   => (int)$loop['min_rows'],
+                            'maxRows'   => (int)$loop['max_rows'],
+                            'positions' => (string)$loop['positions'],
+                            'maxShow'   => (int)$loop['max_show'],
+                            'css'       => (string)($ec['custom_css'] ?? ''),
                         ];
                     }
                     // Never register WC shop hooks as PHP actions — the hook fires before/inside
@@ -286,6 +288,13 @@ class EverXP_Embeds {
       while(true){ var rows=Math.floor(Math.random()*(maxRows-minRows+1))+minRows; var step=Math.max(1, rows*perRow); i+=step; if(i>count) break; out.push(i); }
       return out;
     }
+    function specificPositions(posStr){
+      var out=[];
+      (posStr||'').split(',').forEach(function(s){ var n=parseInt(s.trim(),10); if(n>0) out.push(n); });
+      out.sort(function(a,b){return a-b;});
+      return out.filter(function(v,i,a){return i===0||a[i-1]!==v;});
+    }
+    function applyMaxShow(positions, maxShow){ return (maxShow>0) ? positions.slice(0,maxShow) : positions; }
     function injectAtPositions(grid, items, positions, embed){
       ensureStyle(embed);
       positions.forEach(function(pos){
@@ -303,8 +312,15 @@ class EverXP_Embeds {
     function processGrid(grid){
       EMBEDS.forEach(function(embed){
         var items = getItems(grid); if (!items.length) return;
-        var positions = (embed.mode==='fixed') ? fixedPositions(items.length, Math.max(1, embed.every|0))
-                                               : randomPositions(items.length, embed.minRows|0, embed.maxRows|0, embed.perRow|0);
+        var positions;
+        if (embed.mode==='specific') {
+          positions = specificPositions(embed.positions||'');
+        } else if (embed.mode==='fixed') {
+          positions = fixedPositions(items.length, Math.max(1, embed.every|0));
+        } else {
+          positions = randomPositions(items.length, embed.minRows|0, embed.maxRows|0, embed.perRow|0);
+        }
+        positions = applyMaxShow(positions, embed.maxShow|0);
         injectAtPositions(grid, items, positions, embed);
       });
     }
@@ -418,6 +434,8 @@ class EverXP_Embeds {
             'min_rows'    => 2,
             'max_rows'    => 4,
             'wrapper'     => 'auto',
+            'positions'   => '',  // comma-separated item numbers for 'specific' mode
+            'max_show'    => 0,   // 0 = unlimited
         ];
         $c = [];
         if (!empty($e['conditions'])) {
@@ -436,15 +454,18 @@ class EverXP_Embeds {
         }
         if (!empty($c['loop']) && is_array($c['loop'])) {
             $l = $c['loop'];
-            $out['mode']        = in_array($l['mode'] ?? 'fixed', ['fixed','random'], true) ? $l['mode'] : 'fixed';
+            $out['mode']        = in_array($l['mode'] ?? 'fixed', ['fixed','random','specific'], true) ? $l['mode'] : 'fixed';
             $out['every_items'] = max(0, (int)($l['every_items'] ?? 0));
             $out['per_row']     = max(1, (int)($l['per_row'] ?? 2));
             $out['min_rows']    = max(1, (int)($l['min_rows'] ?? 2));
             $out['max_rows']    = max($out['min_rows'], (int)($l['max_rows'] ?? $out['min_rows']));
             $out['wrapper']     = (string)($l['wrapper'] ?? 'auto');
+            $out['positions']   = (string)($l['positions'] ?? '');
+            $out['max_show']    = max(0, (int)($l['max_show'] ?? 0));
         }
-        $out['enabled'] = ($out['mode'] === 'fixed' && $out['every_items'] > 0)
-            || ($out['mode'] === 'random' && $out['min_rows'] > 0 && $out['max_rows'] >= $out['min_rows']);
+        $out['enabled'] = ($out['mode'] === 'fixed'    && $out['every_items'] > 0)
+            || ($out['mode'] === 'random'   && $out['min_rows'] > 0 && $out['max_rows'] >= $out['min_rows'])
+            || ($out['mode'] === 'specific' && trim($out['positions']) !== '');
         return $out;
     }
 
@@ -770,12 +791,14 @@ class EverXP_Embeds {
         $languages = array_filter(array_map('sanitize_key', array_map('trim', explode(',', $langs_csv))));
 
         // Loop options
-        $loop_mode   = sanitize_text_field($_POST['loop_mode'] ?? 'fixed');
-        $every_items = max(0, (int)($_POST['loop_every_items'] ?? 0));
-        $per_row     = max(1, (int)($_POST['loop_per_row'] ?? 2));
-        $min_rows    = max(1, (int)($_POST['loop_min_rows'] ?? 2));
-        $max_rows    = max($min_rows, (int)($_POST['loop_max_rows'] ?? $min_rows));
-        $wrapper_in  = sanitize_text_field($_POST['loop_wrapper'] ?? 'auto');
+        $loop_mode        = sanitize_text_field($_POST['loop_mode'] ?? 'fixed');
+        $every_items      = max(0, (int)($_POST['loop_every_items'] ?? 0));
+        $per_row          = max(1, (int)($_POST['loop_per_row'] ?? 2));
+        $min_rows         = max(1, (int)($_POST['loop_min_rows'] ?? 2));
+        $max_rows         = max($min_rows, (int)($_POST['loop_max_rows'] ?? $min_rows));
+        $wrapper_in       = sanitize_text_field($_POST['loop_wrapper'] ?? 'auto');
+        $loop_positions   = sanitize_text_field($_POST['loop_positions'] ?? '');
+        $loop_max_show    = max(0, (int)($_POST['loop_max_show'] ?? 0));
 
         $allowed_wrappers = ['none','hello_elementor','woo_product_li','woo_generic_li','woo_blocks_li','auto','woo_banner'];
         if (!in_array($wrapper_in, $allowed_wrappers, true)) {
@@ -802,12 +825,14 @@ class EverXP_Embeds {
             'languages'  => $languages,
             'custom_css' => $custom_css,
             'loop' => [
-                'mode'        => in_array($loop_mode, ['fixed','random'], true) ? $loop_mode : 'fixed',
+                'mode'        => in_array($loop_mode, ['fixed','random','specific'], true) ? $loop_mode : 'fixed',
                 'every_items' => $every_items,
                 'per_row'     => $per_row,
                 'min_rows'    => $min_rows,
                 'max_rows'    => $max_rows,
                 'wrapper'     => $wrapper_in,
+                'positions'   => $loop_positions,
+                'max_show'    => $loop_max_show,
             ],
         ];
         $conditions_json = wp_json_encode($conditions);
@@ -903,12 +928,14 @@ class EverXP_Embeds {
         $custom_css = (string)($conditions['custom_css'] ?? '');
 
         $loop = (array)($conditions['loop'] ?? []);
-        $loop_mode   = $loop['mode']        ?? 'fixed';
-        $every_items = (int)($loop['every_items'] ?? 0);
-        $per_row     = (int)($loop['per_row']     ?? 2);
-        $min_rows    = (int)($loop['min_rows']    ?? 2);
-        $max_rows    = (int)($loop['max_rows']    ?? max($min_rows, 2));
-        $wrapper     = $loop['wrapper']     ?? 'none';
+        $loop_mode      = $loop['mode']        ?? 'fixed';
+        $every_items    = (int)($loop['every_items'] ?? 0);
+        $per_row        = (int)($loop['per_row']     ?? 2);
+        $min_rows       = (int)($loop['min_rows']    ?? 2);
+        $max_rows       = (int)($loop['max_rows']    ?? max($min_rows, 2));
+        $wrapper        = $loop['wrapper']     ?? 'none';
+        $loop_positions = (string)($loop['positions'] ?? '');
+        $loop_max_show  = (int)($loop['max_show']    ?? 0);
 
         // Bank picker: parse existing EverXP payload, fetch active banks
         $everxp_sc    = ($type === 'shortcode') ? self::parse_everxp_shortcode($payload) : null;
@@ -1215,8 +1242,9 @@ class EverXP_Embeds {
         // -------- Loop options (for repeating hooks) --------
         echo '<tr><th scope="row">Loop options (for repeating hooks)</th><td>';
         echo '<fieldset style="margin-bottom:10px;"><legend><strong>Mode</strong></legend>';
-        echo '<label style="margin-right:12px;"><input type="radio" name="loop_mode" value="fixed" ' . checked($loop_mode,'fixed',false) . '> Fixed (every N items)</label>';
-        echo '<label><input type="radio" name="loop_mode" value="random" ' . checked($loop_mode,'random',false) . '> Random (rows range)</label>';
+        echo '<label style="margin-right:12px;"><input type="radio" name="loop_mode" value="fixed" '    . checked($loop_mode,'fixed',false)    . '> Fixed (every N items)</label>';
+        echo '<label style="margin-right:12px;"><input type="radio" name="loop_mode" value="random" '   . checked($loop_mode,'random',false)   . '> Random (rows range)</label>';
+        echo '<label><input type="radio" name="loop_mode" value="specific" ' . checked($loop_mode,'specific',false) . '> Specific positions</label>';
         echo '</fieldset>';
 
         echo '<div id="everxp-loop-fixed" ' . ($loop_mode==='fixed'?'':'style="display:none"') . '>
@@ -1229,6 +1257,20 @@ class EverXP_Embeds {
                 <label>Random rows range: min <input type="number" name="loop_min_rows" min="1" value="' . esc_attr((string)$min_rows) . '" style="width:90px;">
                        max <input type="number" name="loop_max_rows" min="1" value="' . esc_attr((string)$max_rows) . '" style="width:90px;"></label>
                 <p class="description">Banner appears after a random number of rows, then re-randomizes. Interval = rows × products per row.</p>
+              </div>';
+
+        echo '<div id="everxp-loop-specific" ' . ($loop_mode==='specific'?'':'style="display:none"') . '>
+                <label>After item numbers (comma-separated):
+                  <input type="text" name="loop_positions" class="regular-text" value="' . esc_attr($loop_positions) . '" placeholder="2, 8, 16">
+                </label>
+                <p class="description">Enter the product item numbers after which the banner should appear. Example: <code>2, 8</code> inserts after the 2nd and 8th product.</p>
+              </div>';
+
+        echo '<div style="margin-top:10px;">
+                <label><strong>Max occurrences:</strong>
+                  <input type="number" name="loop_max_show" min="0" value="' . esc_attr((string)$loop_max_show) . '" style="width:100px;">
+                </label>
+                <p class="description">Maximum number of times the banner appears (0 = unlimited). Works with all modes — e.g., set to <code>1</code> to show only on the first matched position.</p>
               </div>';
 
         $wrapper_options = [
@@ -1348,13 +1390,18 @@ class EverXP_Embeds {
             /* ── Loop mode selector ── */
             var modeFixed=document.querySelector("input[name=loop_mode][value=fixed]");
             var modeRandom=document.querySelector("input[name=loop_mode][value=random]");
+            var modeSpecific=document.querySelector("input[name=loop_mode][value=specific]");
             var boxFixed=document.getElementById("everxp-loop-fixed");
             var boxRandom=document.getElementById("everxp-loop-random");
+            var boxSpecific=document.getElementById("everxp-loop-specific");
             function refreshLoop(){
-                if(modeFixed&&modeFixed.checked){if(boxFixed)boxFixed.style.display="";if(boxRandom)boxRandom.style.display="none";}
-                if(modeRandom&&modeRandom.checked){if(boxFixed)boxFixed.style.display="none";if(boxRandom)boxRandom.style.display="";}
+                var isFixed=(modeFixed&&modeFixed.checked), isRandom=(modeRandom&&modeRandom.checked), isSpecific=(modeSpecific&&modeSpecific.checked);
+                if(boxFixed)    boxFixed.style.display    = isFixed    ? "" : "none";
+                if(boxRandom)   boxRandom.style.display   = isRandom   ? "" : "none";
+                if(boxSpecific) boxSpecific.style.display = isSpecific ? "" : "none";
             }
-            if(modeFixed&&modeRandom){modeFixed.addEventListener("change",refreshLoop);modeRandom.addEventListener("change",refreshLoop);refreshLoop();}
+            [modeFixed,modeRandom,modeSpecific].forEach(function(r){if(r)r.addEventListener("change",refreshLoop);});
+            refreshLoop();
 
             /* ── Conditions collapsible ── */
             var condToggle=document.getElementById("everxp-cond-toggle");
