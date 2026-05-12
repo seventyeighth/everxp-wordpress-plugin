@@ -28,34 +28,19 @@ class EverXP_Encryption_Helper {
     }
 
 
-    private static function generate_key() {
-        // Use stable factors: ABSPATH and WordPress keys
-        $stable_factor = hash('sha256', plugin_dir_path(__FILE__) . AUTH_KEY);
-        return hash('sha256', $stable_factor);
-    }
-
-    /**
-     * Encrypt data using a stable server-specific key
-     *
-     * @param string $data The data to encrypt
-     * @param string $domain The domain name
-     * @return string The encrypted string
-     */
     public static function encrypt($data) {
-        $key = self::generate_key();
-        return openssl_encrypt($data, 'aes-256-cbc', $key, 0, substr($key, 0, 16));
+        $iv = openssl_random_pseudo_bytes(self::$iv_length);
+        $encrypted = openssl_encrypt((string)$data, 'aes-256-cbc', self::$key, 0, $iv);
+        return base64_encode($iv . $encrypted);
     }
 
-    /**
-     * Decrypt data using a stable server-specific key
-     *
-     * @param string $data The encrypted data
-     * @param string $domain The domain name
-     * @return string|null The decrypted string or null if decryption fails
-     */
     public static function decrypt($data) {
-        $key = self::generate_key();
-        return openssl_decrypt($data, 'aes-256-cbc', $key, 0, substr($key, 0, 16));
+        $raw = base64_decode((string)$data, true);
+        if ($raw === false || strlen($raw) <= self::$iv_length) { return false; }
+        $iv        = substr($raw, 0, self::$iv_length);
+        $encrypted = substr($raw, self::$iv_length);
+        $result    = openssl_decrypt($encrypted, 'aes-256-cbc', self::$key, 0, $iv);
+        return ($result !== false && $result !== '') ? $result : false;
     }
 
 
