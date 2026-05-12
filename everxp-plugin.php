@@ -11,7 +11,7 @@ defined('ABSPATH') || exit;
 
 function everxp_api_base_url(): string {
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    if ($host === 'localhost' || str_starts_with($host, '127.') || str_starts_with($host, '192.168.')) {
+    if ($host === 'localhost' || strpos($host, '127.') === 0 || strpos($host, '192.168.') === 0) {
         return 'http://localhost/everxp/everxp-api';
     }
     return 'https://api.everxp.com';
@@ -76,18 +76,15 @@ function everxp_settings_page(): void {
 // ── Inject SDK into <head> ────────────────────────────────────────────────────
 
 add_action('wp_head', function () {
-    $key  = get_option('everxp_api_key', '');
+    $key = get_option('everxp_api_key', '');
     if (!$key) { return; }
     $base = everxp_api_base_url();
+    $sdk  = plugins_url('assets/js/everxp-sdk.js', __FILE__) . '?v=' . filemtime(__DIR__ . '/assets/js/everxp-sdk.js');
     ?>
 <script>
 window._everxpKey = <?php echo json_encode($key); ?>;
 window._everxpBase = <?php echo json_encode($base); ?>;
-(function(d,b){
-    var s=d.createElement('script');
-    s.async=1;s.src=b+'/assets/js/everxp.js';
-    d.head.appendChild(s);
-})(document,window._everxpBase);
+(function(d,s){var el=d.createElement('script');el.async=1;el.src=s;d.head.appendChild(el);})(document,<?php echo json_encode($sdk); ?>);
 </script>
     <?php
 });
