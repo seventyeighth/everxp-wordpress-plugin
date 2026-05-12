@@ -164,6 +164,9 @@
     ':scope > li.product',
     ':scope > li.post-type-product',
     ':scope > .e-loop-item',
+    ':scope > div.wd-product',        // WoodMart theme
+    ':scope > div.type-product',      // generic div-based grids
+    ':scope > div.product-grid-item', // WoodMart / similar
     ':scope > li'
   ];
 
@@ -247,6 +250,7 @@
     '.wc-block-product-template',
     'ul.products',
     'div.products',
+    'div.wd-products',                // WoodMart theme
     '.wp-block-woocommerce-all-products ul',
     '.wp-block-woocommerce-product-collection ul'
   ];

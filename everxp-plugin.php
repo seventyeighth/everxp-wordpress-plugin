@@ -78,7 +78,6 @@ function everxp_settings_page(): void {
 add_action('wp_head', function () {
     $key = get_option('everxp_api_key', '');
     if (!$key) { return; }
-    // SDK is bundled in the plugin (v1.3) — served from the site's own origin, no CORS preflight.
-    $src = plugins_url('assets/js/everxp-sdk.js', __FILE__) . '?v=1.3';
-    echo '<script src="' . esc_url($src) . '" data-key="' . esc_attr($key) . '" data-base="' . esc_url(everxp_api_base_url()) . '" defer></script>' . "\n";
+    $src = esc_url(everxp_api_base_url()) . '/assets/js/everxp.js';
+    echo '<script src="' . $src . '" data-key="' . esc_attr($key) . '" defer></script>' . "\n";
 });
