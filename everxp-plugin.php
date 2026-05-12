@@ -76,8 +76,18 @@ function everxp_settings_page(): void {
 // ── Inject SDK into <head> ────────────────────────────────────────────────────
 
 add_action('wp_head', function () {
-    $key = get_option('everxp_api_key', '');
+    $key  = get_option('everxp_api_key', '');
     if (!$key) { return; }
-    $src = esc_url(everxp_api_base_url()) . '/assets/js/everxp.js';
-    echo '<script src="' . $src . '" data-key="' . esc_attr($key) . '" defer></script>' . "\n";
+    $base = everxp_api_base_url();
+    ?>
+<script>
+window._everxpKey = <?php echo json_encode($key); ?>;
+window._everxpBase = <?php echo json_encode($base); ?>;
+(function(d,b){
+    var s=d.createElement('script');
+    s.async=1;s.src=b+'/assets/js/everxp.js';
+    d.head.appendChild(s);
+})(document,window._everxpBase);
+</script>
+    <?php
 });

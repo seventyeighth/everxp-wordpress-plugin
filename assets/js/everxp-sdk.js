@@ -1,6 +1,7 @@
 /**
  * EverXP Embed SDK  v1.3
- * Bundled inside the WordPress plugin — served from the site's own origin.
+ * Loaded via async snippet — reads key/base from window globals set by the
+ * loader, with data-key / data-base attributes as fallback.
  * API calls use ?key= query param (no Authorization header = no CORS preflight).
  */
 (function () {
@@ -13,8 +14,8 @@
     var s = document.getElementsByTagName('script');
     return s[s.length - 1];
   })();
-  var API_KEY  = scriptTag && scriptTag.getAttribute('data-key');
-  var API_BASE = (scriptTag && scriptTag.getAttribute('data-base')) || 'https://api.everxp.com';
+  var API_KEY  = window._everxpKey  || (scriptTag && scriptTag.getAttribute('data-key'));
+  var API_BASE = window._everxpBase || (scriptTag && scriptTag.getAttribute('data-base')) || 'https://api.everxp.com';
   if (!API_KEY) { return; }
 
   /* ── 1. fetch embed deployments (cached 5 min) ───────────────────────── */
