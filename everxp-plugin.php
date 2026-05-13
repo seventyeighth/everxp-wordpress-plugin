@@ -79,7 +79,7 @@ add_action('wp_head', function () {
     $key = get_option('everxp_api_key', '');
     if (!$key) { return; }
     $base = everxp_api_base_url();
-    $sdk  = plugins_url('assets/js/everxp-sdk.js', __FILE__) . '?v=' . filemtime(__DIR__ . '/assets/js/everxp-sdk.js');
+    $sdk  = rtrim($base, '/') . '/assets/js/everxp.js';
     ?>
 <script>
 window._everxpKey = <?php echo json_encode($key); ?>;

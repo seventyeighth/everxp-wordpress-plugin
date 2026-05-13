@@ -12,7 +12,19 @@
       "Read(//c/Users/iluza/AppData/Local/**)",
       "Read(//c/ProgramData/**)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\iluza\\\\AppData\" -Recurse -Filter \"*mamp*\" -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\everxp-dashboard\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\everxp-api\" -Recurse -Force)",
+      "Bash(Select-Object -Property FullName, Mode)",
+      "Bash(Format-List)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\everxp-api\" -Recurse -Force | Select-Object -Property @{Name=\"Path\";Expression={$_.FullName.Substring\\(\"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\everxp-api\".Length\\)}}, @{Name=\"Type\";Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} | Sort-Object Path | Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\everxp-api\" -Directory | ForEach-Object { $_ | Select-Object Name })",
+      "Bash(mkdir -p \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\everxp-dashboard\\\\application\\\\migrations\")",
+      "Bash(mkdir -p \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\everxp-dashboard\\\\deploy\")",
+      "PowerShell(cmd /c dir \"C:\\\\MAMP\\\\htdocs\\\\everxp\\\\everxp-dashboard\\\\application\\\\views\" /s /b)",
+      "Bash(del *)",
+      "WebFetch(domain:localhost)"
     ]
   }
 }
